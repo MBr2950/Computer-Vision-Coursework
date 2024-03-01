@@ -4,7 +4,7 @@ from hough import houghTransform, findMaxima
 
 def main():
     for i in range(1, 11):
-        image = cv2.imread("Task1Dataset\image" + str(i) + ".png")
+        image = cv2.imread("./Task1Dataset/image" + str(i) + ".png")
         image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
         # cv2.imshow("image", image)
