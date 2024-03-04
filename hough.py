@@ -31,14 +31,20 @@ def houghTransform(image : np.ndarray, angleCount : int, edgeThreshold : float):
     return hough, magnitudes, angles
 
 # Get lineCount number of lines from the maxima sorted by number of votes
-def findMaxima(hough : np.ndarray, magnitudes : np.ndarray, angles : np.ndarray, lineCount: int):
+def findMaxima(hough : np.ndarray, magnitudes : np.ndarray, angles : np.ndarray):
     maxima = []
     for i in range(len(magnitudes)):
         for j in range(len(angles)):
             if (hough[i, j] > 0):
                 maxima.append((magnitudes[i], angles[j], hough[i, j]))
-    
+                    
     # Take top maxima
     maxima.sort(key = lambda x : x[2], reverse = True)
-    maxima = maxima[:lineCount]
-    return maxima
+    
+    # Discard lines which are duplicates
+    bestLines = maxima[:2]
+    while (abs(bestLines[0][1] - bestLines[1][1]) < 0.05):
+        del maxima[0]
+        bestLines = maxima[:2]
+        
+    return bestLines
