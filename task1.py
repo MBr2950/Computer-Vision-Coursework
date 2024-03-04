@@ -2,15 +2,19 @@ import cv2
 import numpy as np
 from hough import houghTransform, findMaxima
 
+
+
 def main():
     for i in range(1, 11):
         image = cv2.imread("./Task1Dataset/image" + str(i) + ".png")
         image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
-        # cv2.imshow("image", image)
-        # cv2.waitKey(1000)
+        cv2.imshow("image", image)
+        cv2.waitKey(0)
 
         edges = findEdges(image)
+        cv2.imshow("image", edges)
+        cv2.waitKey(0)
         lines = findLines(edges)
         points = findPoints(lines)
         print(points)
@@ -21,6 +25,7 @@ def main():
 # Input: List of 3 lists, each of format [x, y] and representing either the end of a line, or the intersection point
 # Output: Angle in degrees
 def findAngle(points):
+
     distanceA = findDistance([points[0], points[2]])
     distanceB = findDistance([points[1], points[2]])
     distanceC = findDistance([points[0], points[1]])
@@ -44,7 +49,61 @@ def findDistance(points):
 # Input: Image in the form of a numpy array
 # Output: Edgemap in the form of a numpy array
 def findEdges(image):
-    edges = cv2.Canny(image, 100, 200)
+    #perform canny edge detection without use of cv2.Canny
+    
+    #blur to reduce noise
+    image = cv2.GaussianBlur(image, (5, 5), 0)
+
+    #find gradient
+    sobelX = cv2.Sobel(image, cv2.CV_64F, 1, 0, ksize=3)
+    sobelY = cv2.Sobel(image, cv2.CV_64F, 0, 1, ksize=3)
+
+    #find magnitude of gradient
+    intensity = np.sqrt(sobelX**2 + sobelY**2)
+    intensity = intensity / np.max(intensity) * 255
+    edges = intensity.astype(np.uint8)
+
+    #find direction of gradient
+    direction = np.arctan2(sobelY, sobelX)
+
+    #NON-MAX SUPPRESSION
+    supressionMat = np.zeros_like(edges)
+
+    for y in range(1, edges.shape[0] - 1):
+        for x in range(1, edges.shape[1] - 1):
+            
+            angle = direction[y, x]
+            pi = np.pi
+            
+            f = 255
+            b = 255
+            
+            #right
+            if (0 <= angle < pi / 8) or (7 * pi / 8 <= angle <= pi):
+                f = edges[y, x + 1]
+                b = edges[y, x - 1]
+            #down-right
+            elif (pi / 8 <= angle < 3 * pi / 8):
+                f = edges[y + 1, x - 1]
+                b = edges[y - 1, x + 1]
+            #down
+            elif (3 * pi / 8 <= angle < 5 * pi / 8):
+                f = edges[y + 1, x]
+                b = edges[y - 1, x]
+            #down-left
+            elif (5 * pi / 8 <= angle < 7 * pi / 8):
+                f = edges[y - 1, x - 1]
+                b = edges[y + 1, x + 1]
+
+            if (edges[y, x] >= f) and (edges[y, x] >= b):
+                supressionMat[y, x] = edges[y, x]
+
+    return supressionMat
+
+
+
+
+
     return edges
 
 # Convert edgemap into lines
