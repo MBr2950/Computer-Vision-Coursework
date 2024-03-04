@@ -13,13 +13,17 @@ def main():
         cv2.waitKey(0)
 
         edges = findEdges(image)
-        cv2.imshow("image", edges)
-        cv2.waitKey(0)
-        lines = findLines(edges)
-        points = findPoints(lines)
-        print(points)
-        angle = findAngle(points)
+    
+        houghSpace, magnitudes, angles = houghTransform(edges, 180, 0.0)
+        lines = findMaxima(houghSpace, magnitudes, angles)        
+        angle = abs(lines[0][1] - lines[1][1])
+        
+        if (angle > np.pi):
+            angle = 2.0 * np.pi - angle
+            
+        angle = angle * (180 / np.pi)
         print(angle)
+        
 
 # Find the angle specified by the 3 points identified
 # Input: List of 3 lists, each of format [x, y] and representing either the end of a line, or the intersection point
