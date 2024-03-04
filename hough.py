@@ -1,6 +1,4 @@
-from multiprocessing.reduction import duplicate
 import numpy as np
-from sympy import true
 
 # Perform hough transform on an image
 def houghTransform(image : np.ndarray, angleCount : int, edgeThreshold : float):
