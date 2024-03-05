@@ -56,11 +56,9 @@ def findDistance(points):
 # Use canny edge detection to identify edge in image
 # Input: Image in the form of a numpy array
 # Output: Edgemap in the form of a numpy array
-def findEdges(image, highFraction = 0.5, lowFraction = 0.2):
+def findEdges(image, highFraction = 0.6, lowFraction = 0.2):
     #perform canny edge detection without use of cv2.Canny
-    
-    #blur to reduce noise
-    image = cv2.GaussianBlur(image, (5, 5), 0)
+
 
     #find gradient
     sobelX = cv2.Sobel(image, cv2.CV_64F, 1, 0, ksize=3)
