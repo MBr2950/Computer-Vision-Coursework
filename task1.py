@@ -13,6 +13,10 @@ def main():
         cv2.waitKey(0)
 
         edges = findEdges(image)
+
+        cv2.imshow("image", edges)
+        cv2.waitKey(0)
+
     
         houghSpace, magnitudes, angles = houghTransform(edges, 180, 0.0)
         lines = findMaxima(houghSpace, magnitudes, angles)        
@@ -52,7 +56,7 @@ def findDistance(points):
 # Use canny edge detection to identify edge in image
 # Input: Image in the form of a numpy array
 # Output: Edgemap in the form of a numpy array
-def findEdges(image):
+def findEdges(image, highFraction = 0.5, lowFraction = 0.2):
     #perform canny edge detection without use of cv2.Canny
     
     #blur to reduce noise
@@ -72,6 +76,8 @@ def findEdges(image):
 
     #NON-MAX SUPPRESSION
     supressionMat = np.zeros_like(edges)
+
+
 
     for y in range(1, edges.shape[0] - 1):
         for x in range(1, edges.shape[1] - 1):
@@ -102,11 +108,35 @@ def findEdges(image):
             if (edges[y, x] >= f) and (edges[y, x] >= b):
                 supressionMat[y, x] = edges[y, x]
 
-    return supressionMat
+    edges = supressionMat
 
+    #DOUBLE THRESHOLD
+    highThreshold = edges.max() * highFraction
+    lowThreshold = edges.max() * lowFraction
 
+    thresholdMat = np.zeros_like(edges)
 
+    strongI = np.where(edges > highThreshold)
+    weakI = np.where((edges <= highThreshold) & (edges >= lowThreshold))
 
+    thresholdMat[strongI] = 255
+    thresholdMat[weakI] = 50
+
+    edges = thresholdMat
+
+    
+    #HYSTERESIS
+
+    for y in range(1, edges.shape[0] - 1):
+        for x in range(1, edges.shape[1] - 1):
+            if (edges[y, x] == 50):
+                if (edges[y - 1, x - 1] == 255) or (edges[y - 1, x] == 255) or \
+                (edges[y - 1, x + 1] == 255) or (edges[y, x - 1] == 255) or \
+                (edges[y, x + 1] == 255) or (edges[y + 1, x - 1] == 255) or \
+                (edges[y + 1, x] == 255) or (edges[y + 1, x + 1] == 255):
+                    edges[y, x] = 255
+                else:
+                    edges[y, x] = 0
 
     return edges
 
