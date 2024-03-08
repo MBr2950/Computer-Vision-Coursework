@@ -80,61 +80,58 @@ def findEdges(image, highFraction = 0.6, lowFraction = 0.2):
     for y in range(1, edges.shape[0] - 1):
         for x in range(1, edges.shape[1] - 1):
             
-            angle = direction[y, x]
-            pi = np.pi
-            
             f = 255
             b = 255
-            
-            #right
-            if (0 <= angle < pi / 8) or (7 * pi / 8 <= angle <= pi):
-                f = edges[y, x + 1]
-                b = edges[y, x - 1]
-            #down-right
-            elif (pi / 8 <= angle < 3 * pi / 8):
-                f = edges[y + 1, x - 1]
-                b = edges[y - 1, x + 1]
-            #down
-            elif (3 * pi / 8 <= angle < 5 * pi / 8):
-                f = edges[y + 1, x]
-                b = edges[y - 1, x]
-            #down-left
-            elif (5 * pi / 8 <= angle < 7 * pi / 8):
+
+            angle = direction[y, x] * 180 / np.pi
+            angle = abs(angle)
+
+            if (angle >= 0 and angle < 22.5) or (angle >= 157.5 and angle <= 180):
+                f = edges[y - 1, x + 1]
+                b = edges[y + 1, x - 1]
+            elif (angle >= 22.5 and angle < 67.5):
+                f = edges[y - 1, x]
+                b = edges[y + 1, x]
+            elif (angle >= 67.5 and angle < 112.5):
                 f = edges[y - 1, x - 1]
                 b = edges[y + 1, x + 1]
-
+            elif (angle >= 112.5 and angle < 157.5):
+                f = edges[y, x - 1]
+                b = edges[y, x + 1]
+           
+           
             if (edges[y, x] >= f) and (edges[y, x] >= b):
                 supressionMat[y, x] = edges[y, x]
 
     edges = supressionMat
 
-    #DOUBLE THRESHOLD
-    highThreshold = edges.max() * highFraction
-    lowThreshold = edges.max() * lowFraction
+    # #DOUBLE THRESHOLD
+    # highThreshold = edges.max() * highFraction
+    # lowThreshold = edges.max() * lowFraction
 
-    thresholdMat = np.zeros_like(edges)
+    # thresholdMat = np.zeros_like(edges)
 
-    strongI = np.where(edges > highThreshold)
-    weakI = np.where((edges <= highThreshold) & (edges >= lowThreshold))
+    # strongI = np.where(edges > highThreshold)
+    # weakI = np.where((edges <= highThreshold) & (edges >= lowThreshold))
 
-    thresholdMat[strongI] = 255
-    thresholdMat[weakI] = 50
+    # thresholdMat[strongI] = 255
+    # thresholdMat[weakI] = 50
 
-    edges = thresholdMat
+    # edges = thresholdMat
 
     
-    #HYSTERESIS
+    # #HYSTERESIS
 
-    for y in range(1, edges.shape[0] - 1):
-        for x in range(1, edges.shape[1] - 1):
-            if (edges[y, x] == 50):
-                if (edges[y - 1, x - 1] == 255) or (edges[y - 1, x] == 255) or \
-                (edges[y - 1, x + 1] == 255) or (edges[y, x - 1] == 255) or \
-                (edges[y, x + 1] == 255) or (edges[y + 1, x - 1] == 255) or \
-                (edges[y + 1, x] == 255) or (edges[y + 1, x + 1] == 255):
-                    edges[y, x] = 255
-                else:
-                    edges[y, x] = 0
+    # for y in range(1, edges.shape[0] - 1):
+    #     for x in range(1, edges.shape[1] - 1):
+    #         if (edges[y, x] == 50):
+    #             if (edges[y - 1, x - 1] == 255) or (edges[y - 1, x] == 255) or \
+    #             (edges[y - 1, x + 1] == 255) or (edges[y, x - 1] == 255) or \
+    #             (edges[y, x + 1] == 255) or (edges[y + 1, x - 1] == 255) or \
+    #             (edges[y + 1, x] == 255) or (edges[y + 1, x + 1] == 255):
+    #                 edges[y, x] = 255
+    #             else:
+    #                 edges[y, x] = 0
 
     return edges
 
