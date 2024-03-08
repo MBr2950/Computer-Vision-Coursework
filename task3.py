@@ -6,11 +6,8 @@ from scipy import stats
 # Searches for an icon in an image
 # Input: icon filepath; image filepath; threshold for accepting a match exists;
 # threshold for rejecting outliers
-# Output: numpy arrray of matching points, each in the form [x, y]
-def findMatchingPoints(iconPath, imagePath, distanceThreshold, zScoreThreshold):
-    icon = cv2.imread(iconPath)
-    image = cv2.imread(imagePath)
-
+# Output: array of matching points, each in the form [x, y]
+def findMatchingPoints(icon, image, distanceThreshold, zScoreThreshold):
     icon = cv2.cvtColor(icon, cv2.COLOR_RGB2GRAY)
     image = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
 
@@ -55,17 +52,30 @@ def removeOutliers(data, threshold):
 
     return cleanedData
 
+def findBoundingSquare(matchingPoints):
+    leftmostPoint = 1000
+    rightmostPoint = 0
+    bottommostPoint = 1000
+    topmostPoint = 0
 
-def main():
-    # Determines how many matching points are needed to count as a match
-    pointsThreshold = 10
+    for point in matchingPoints:
+        if point[0] < leftmostPoint:
+            leftmostPoint = point[0]
+        elif point[0] > rightmostPoint:
+            rightmostPoint = point[0]
 
-    # Icon is the smaller image to search for, image is the larger image to search in
-    iconPath = './IconDataset/png/027-gas-station.png'
-    imagePath = './Task3Dataset/images/test_image_7.png'
+        if point[1] < bottommostPoint:
+            bottommostPoint = point[1]
+        elif point[1] > topmostPoint:
+            topmostPoint = point[1]
+
+    return ((int(leftmostPoint), int(bottommostPoint)), (int(rightmostPoint), int(topmostPoint)))
+
+def findIconInImage(icon, image, pointsThreshold):
+    originalImage = image
 
     # Finds the matching points of the icon in the image, if they exist
-    matchingPoints = findMatchingPoints(iconPath, imagePath, 1250, 2)
+    matchingPoints = findMatchingPoints(icon, image, 1250, 2)
 
     # Finds the centre of these points, if there are enough to constitute a match
     if len(matchingPoints) >= pointsThreshold:
@@ -75,18 +85,47 @@ def main():
 
     # If the icon does exist in the image, draw a circle where the detected centre is
     if type(centre) == np.ndarray:
-        image = cv2.imread(imagePath)
-        matchesImage = cv2.circle(image, (int(centre[0]), int(centre[1])), radius=5, color=(255, 0, 255), thickness=-1)
+        # Add dot at centre of icon
+        matchesImage = cv2.circle(originalImage, (int(centre[0]), int(centre[1])), radius=5, color=(255, 0, 255), thickness=-1)
 
-        # showing the output
-        cv2.imshow('image', cv2.resize(matchesImage, (800, 600)))
+        boundingPoints = findBoundingSquare(matchingPoints)
+        matchesImage = cv2.rectangle(matchesImage, boundingPoints[0], boundingPoints[1], color = (0, 0, 255))
+        print(boundingPoints)
+        textPosition = (int((boundingPoints[0][0] + boundingPoints[1][0]) / 2), boundingPoints[1][1] + 15)
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        matchesImage = cv2.putText(matchesImage, "icon", textPosition, font, 0.5, (0, 0, 255))
+
+        return matchesImage
+
+
+    # Otherwise it does not exist in the image
+    else:
+        print("No Match")
+        return None
+
+def main():
+    # Determines how many matching points are needed to count as a match
+    pointsThreshold = 10
+
+    # Icon is the smaller image to search for, image is the larger image to search in
+    iconPath = './IconDataset/png/027-gas-station.png'
+    iconPath2 = './IconDataset/png/014-flower.png'
+    imagePath = './Task3Dataset/images/test_image_7.png'
+
+    icon = cv2.imread(iconPath)
+    icon2 = cv2.imread(iconPath2)
+    image = cv2.imread(imagePath)
+
+    image = findIconInImage(icon, image, pointsThreshold)
+    image = findIconInImage(icon2, image, pointsThreshold)
+
+    if type(image) == np.ndarray:
+        cv2.imshow('image', cv2.resize(image, (800, 600)))
 
         k = cv2.waitKey(0) & 0xff
 
         if k == 27:
             cv2.destroyAllWindows()
-    # Otherwise it does not exist in the image
-    else:
-        print("No Match")
+    
 
 main()
