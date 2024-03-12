@@ -5,7 +5,7 @@ from hough import houghTransform, findMaxima
 
 
 def main():
-    for i in range(1, 11):
+    for i in range(0, 11):
         image = cv2.imread("./Task1Dataset/image" + str(i) + ".png")
         image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
@@ -18,8 +18,8 @@ def main():
         cv2.waitKey(0)
 
         
-        houghSpace, magnitudes, angles = houghTransform(edges, 180, 0.0)
-        lines = findMaxima(houghSpace, magnitudes, angles)   
+        houghSpace, magnitudes, angles, voters = houghTransform(edges, 180, 0.0)
+        lines = findMaxima(houghSpace, magnitudes, angles, voters)   
          
 
         print(lines)
@@ -29,7 +29,7 @@ def main():
 
         # Draw lines on the edges image
         for line in lines:
-            r, theta, _ = line
+            r, theta, _, _= line
 
             a = np.sin(theta)
             b = np.cos(theta)
@@ -46,23 +46,42 @@ def main():
             cv2.line(edges_color, (x1, y1), (x2, y2), (0, 0, 255), 2)
 
         angle = abs(lines[0][1] - lines[1][1])
+        
+        # Find intersection of lines
+        r1, theta1, _, voter1 = lines[0]
+        r2, theta2, _, voter2 = lines[1] 
+        
+        A = np.array([[np.sin(theta1), -np.sin(theta2)],
+                    [-np.cos(theta1), np.cos(theta2)]])
+        
+        B = np.array([r1 * np.cos(theta1) - r2 * np.cos(theta2), r1 * np.sin(theta1) - r2 * np.sin(theta2)])
+        
+        t, s = np.linalg.solve(A, B)
+        
+        intersectionX = r1 * np.sin(theta1) + t * np.cos(theta1)
+        intersectionY = r1 * np.cos(theta1) + t *(-np.sin(theta1))
+        
+        # Draw intersection
+        cv2.circle(edges_color, (int(intersectionX), int(intersectionY)), radius=3, color=(0, 255, 0), thickness=-1)
+        
+        # Use points which voted for lines
+        cv2.line(edges_color, (int(intersectionX), int(intersectionY)), voter1, (255, 0, 0), 2)
+        cv2.line(edges_color, (int(intersectionX), int(intersectionY)), voter2, (255, 0, 0), 2)
+        
+        dot = np.dot(voter1 - (int(intersectionX), int(intersectionY)), voter2 - (int(intersectionX), int(intersectionY)))
+        print(dot)
+        
+        # Fix incorrect obtuse
+        if (dot < 0) and (angle < np.pi / 2):
+            angle = np.pi - angle
+        
         angle = angle * (180 / np.pi)
         print(angle)
 
         cv2.imshow("image", edges_color)
         cv2.waitKey(0)
         cv2.destroyAllWindows()
-    
-        # houghSpace, magnitudes, angles = houghTransform(edges, 180, 0.0)
-        # lines = findMaxima(houghSpace, magnitudes, angles)        
-        # angle = abs(lines[0][1] - lines[1][1])
-        
-        # if (angle > np.pi):
-        #     angle = 2.0 * np.pi - angle
-            
-        # angle = angle * (180 / np.pi)
-        # print(angle)
-        
+
 
 # Find the angle specified by the 3 points identified
 # Input: List of 3 lists, each of format [x, y] and representing either the end of a line, or the intersection point

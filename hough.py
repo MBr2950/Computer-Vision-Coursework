@@ -15,6 +15,7 @@ def houghTransform(image : np.ndarray, angleCount : int, edgeThreshold : float):
      
     # Hough space array where votes will be accumulated
     hough = np.zeros((magnitudesCount, angleCount))
+    voters = np.zeros((magnitudesCount, angleCount, 2), dtype=int)
     
     # Work on all the points in the image above a set threshold value
     for y in range(height):
@@ -25,17 +26,21 @@ def houghTransform(image : np.ndarray, angleCount : int, edgeThreshold : float):
                     magnitude = y * np.cos(angle) + x * np.sin(angle)
                     magnitude = round(magnitude * (magnitudesCount / diagonalLength))
                     hough[int(magnitude), k] += 1
+                    
+                    # Pick a point to be used to check direction of line segment (picked 5th point arbitrarily)
+                    if hough[int(magnitude), k] == 5:
+                        voters[int(magnitude), k] = np.array([x, y])
 
                     
-    return hough, magnitudes, angles
+    return hough, magnitudes, angles, voters
 
 # Get lineCount number of lines from the maxima sorted by number of votes
-def findMaxima(hough : np.ndarray, magnitudes : np.ndarray, angles : np.ndarray):
+def findMaxima(hough : np.ndarray, magnitudes : np.ndarray, angles : np.ndarray, voters : np.ndarray):
     maxima = []
     for i in range(len(magnitudes)):
         for j in range(len(angles)):
             if (hough[i, j] > 0):
-                maxima.append((magnitudes[i], angles[j], hough[i, j]))
+                maxima.append((magnitudes[i], angles[j], hough[i, j], voters[i, j]))
                     
     # Take top maxima
     maxima.sort(key = lambda x : x[2], reverse = True)
