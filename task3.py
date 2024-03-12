@@ -1,5 +1,6 @@
 import numpy as np
 import cv2
+import os
 
 from scipy import stats
 
@@ -71,7 +72,7 @@ def findBoundingSquare(matchingPoints):
 
     return ((int(leftmostPoint), int(bottommostPoint)), (int(rightmostPoint), int(topmostPoint)))
 
-def findIconInImage(icon, image, pointsThreshold):
+def findIconInImage(icon, iconName, image, pointsThreshold):
     originalImage = image
 
     # Finds the matching points of the icon in the image, if they exist
@@ -90,42 +91,48 @@ def findIconInImage(icon, image, pointsThreshold):
 
         boundingPoints = findBoundingSquare(matchingPoints)
         matchesImage = cv2.rectangle(matchesImage, boundingPoints[0], boundingPoints[1], color = (0, 0, 255))
-        print(boundingPoints)
-        textPosition = (int((boundingPoints[0][0] + boundingPoints[1][0]) / 2), boundingPoints[1][1] + 15)
+        # print(boundingPoints)
+        textPosition = (boundingPoints[0][0], boundingPoints[1][1] + 15)
         font = cv2.FONT_HERSHEY_SIMPLEX
-        matchesImage = cv2.putText(matchesImage, "icon", textPosition, font, 0.5, (0, 0, 255))
+        matchesImage = cv2.putText(matchesImage, iconName, textPosition, font, 0.5, (0, 0, 255))
 
         return matchesImage
-
-
     # Otherwise it does not exist in the image
     else:
-        print("No Match")
-        return None
+        # print("No Match")
+        return originalImage
 
 def main():
     # Determines how many matching points are needed to count as a match
     pointsThreshold = 10
 
     # Icon is the smaller image to search for, image is the larger image to search in
-    iconPath = './IconDataset/png/027-gas-station.png'
-    iconPath2 = './IconDataset/png/014-flower.png'
-    imagePath = './Task3Dataset/images/test_image_7.png'
+    imagePaths = os.listdir('./Task3Dataset/images/')
+    iconPaths = os.listdir('./IconDataset/png/')
+    iconNames = ["Lighthouse", "Bike", "Bridge1", "Bridge", "Silo", "Church", "Supermarket", "Courthouse", "Airport", "Bench", "Bin", "Bus", "Water Well", "Flower",
+                 "Barn", "House", "Cinema", "Bank", "Prison", "ATM", "Solar Panel", "Car", "Traffic Light", "Fountain", "Factory", "Shop", "Petrol Station", "Government",
+                 "Theatre", "Telephone Box", "Field", "Van", "Hydrant", "Billboard", "Police Station", "Hotel", "Post Office", "Library", "University", "Bus Stop", "Windmill",
+                 "Tractor", "Sign", "Ferris Wheel", "Museum", "Fire Station", "Restaurant", "Hospital", "School", "Cemetery"]
 
-    icon = cv2.imread(iconPath)
-    icon2 = cv2.imread(iconPath2)
-    image = cv2.imread(imagePath)
+    for i in range(len(imagePaths)):
+        imagePath = './Task3Dataset/images/' + imagePaths[i]
+        image = cv2.imread(imagePath)
 
-    image = findIconInImage(icon, image, pointsThreshold)
-    image = findIconInImage(icon2, image, pointsThreshold)
+        for j in range(len(iconPaths)):
+            iconPath = './IconDataset/png/' + iconPaths[j]
+            icon = cv2.imread(iconPath)
+    
+            image = findIconInImage(icon, iconNames[j], image, pointsThreshold)
 
-    if type(image) == np.ndarray:
-        cv2.imshow('image', cv2.resize(image, (800, 600)))
+        if type(image) == np.ndarray:
+            # cv2.imshow('image', cv2.resize(image, (800, 600)))
 
-        k = cv2.waitKey(0) & 0xff
+            # k = cv2.waitKey(0) & 0xff
 
-        if k == 27:
-            cv2.destroyAllWindows()
+            # if k == 27:
+            #     cv2.destroyAllWindows()
+
+            cv2.imwrite("./Task3OutputImages/" + imagePaths[i], image)
     
 
 main()
