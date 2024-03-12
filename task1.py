@@ -17,16 +17,39 @@ def main():
         cv2.imshow("image", edges)
         cv2.waitKey(0)
 
-    
-        houghSpace, magnitudes, angles = houghTransform(edges, 180, 0.0)
-        lines = findMaxima(houghSpace, magnitudes, angles)        
-        angle = abs(lines[0][1] - lines[1][1])
         
-        if (angle > np.pi):
-            angle = 2.0 * np.pi - angle
-            
+        houghSpace, magnitudes, angles = houghTransform(edges, 180, 0.0)
+        lines = findMaxima(houghSpace, magnitudes, angles)   
+         
+
+        print(lines)
+
+        # Convert edges to color image
+        edges_color = cv2.cvtColor(edges, cv2.COLOR_GRAY2BGR)
+
+        # Draw lines on the edges image
+        for line in lines:
+            len, angle, _ = line
+            cv2.line(edges_color, (0, 0), (int(len * np.sin(angle)), int(len * np.cos(angle))), (0, 0, 255), 1)
+
+
+        angle = abs(lines[0][1] - lines[1][1])
         angle = angle * (180 / np.pi)
         print(angle)
+
+        cv2.imshow("image", edges_color)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
+    
+        # houghSpace, magnitudes, angles = houghTransform(edges, 180, 0.0)
+        # lines = findMaxima(houghSpace, magnitudes, angles)        
+        # angle = abs(lines[0][1] - lines[1][1])
+        
+        # if (angle > np.pi):
+        #     angle = 2.0 * np.pi - angle
+            
+        # angle = angle * (180 / np.pi)
+        # print(angle)
         
 
 # Find the angle specified by the 3 points identified
@@ -145,6 +168,7 @@ def findLines(edges):
     lines = cv2.HoughLinesP(edges, rho, theta, threshold, minLineLength=98, maxLineGap=48)
 
     return lines
+
 
 # Try to identify the 3 points of the angle (end points and intersection)
 # Input: Detected lines, each represented by start and end coordinates in the format [[x1, y1, x2, y2]]

@@ -2,8 +2,8 @@ import numpy as np
 
 # Perform hough transform on an image
 def houghTransform(image : np.ndarray, angleCount : int, edgeThreshold : float):
-    width = image.shape[0]
-    height = image.shape[1]
+    height = image.shape[0]
+    width = image.shape[1]
     
     # Length of the longest diagonal from corner to corner of the image
     diagonalLength = np.sqrt(width ** 2.0 + height ** 2.0)
@@ -17,16 +17,15 @@ def houghTransform(image : np.ndarray, angleCount : int, edgeThreshold : float):
     hough = np.zeros((magnitudesCount, angleCount))
     
     # Work on all the points in the image above a set threshold value
-    for j in range(height):
-        for i in range(width):
-            if (image[i, j] > edgeThreshold):
-                # For each angle, calculate magnitude
+    for y in range(height):
+        for x in range(width):
+            if (image[y, x] > edgeThreshold):
                 for k in range(len(angles)):
                     angle = angles[k]
-                    magnitude = j * np.cos(angle) + i * np.sin(angle)
+                    magnitude = y * np.cos(angle) + x * np.sin(angle)
                     magnitude = round(magnitude * (magnitudesCount / diagonalLength))
-                    # Add vote for line
-                    hough[magnitude, k] += 1
+                    hough[int(magnitude), k] += 1
+
                     
     return hough, magnitudes, angles
 
