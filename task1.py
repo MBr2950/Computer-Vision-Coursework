@@ -29,9 +29,21 @@ def main():
 
         # Draw lines on the edges image
         for line in lines:
-            len, angle, _ = line
-            cv2.line(edges_color, (0, 0), (int(len * np.sin(angle)), int(len * np.cos(angle))), (0, 0, 255), 1)
+            r, theta, _ = line
 
+            a = np.sin(theta)
+            b = np.cos(theta)
+            
+            x0 = a*r
+            y0 = b*r
+            
+            x1 = int(x0 + 1000*(-b))
+            y1 = int(y0 + 1000*(a))
+
+            x2 = int(x0 - 1000*(-b))
+            y2 = int(y0 - 1000*(a))
+ 
+            cv2.line(edges_color, (x1, y1), (x2, y2), (0, 0, 255), 2)
 
         angle = abs(lines[0][1] - lines[1][1])
         angle = angle * (180 / np.pi)
