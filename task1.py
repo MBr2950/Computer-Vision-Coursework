@@ -17,16 +17,51 @@ def main():
         cv2.imshow("image", edges)
         cv2.waitKey(0)
 
-    
-        houghSpace, magnitudes, angles = houghTransform(edges, 180, 0.0)
-        lines = findMaxima(houghSpace, magnitudes, angles)        
-        angle = abs(lines[0][1] - lines[1][1])
         
-        if (angle > np.pi):
-            angle = 2.0 * np.pi - angle
+        houghSpace, magnitudes, angles = houghTransform(edges, 180, 0.0)
+        lines = findMaxima(houghSpace, magnitudes, angles)   
+         
+
+        print(lines)
+
+        # Convert edges to color image
+        edges_color = cv2.cvtColor(edges, cv2.COLOR_GRAY2BGR)
+
+        # Draw lines on the edges image
+        for line in lines:
+            r, theta, _ = line
+
+            a = np.sin(theta)
+            b = np.cos(theta)
             
+            x0 = a*r
+            y0 = b*r
+            
+            x1 = int(x0 + 1000*(-b))
+            y1 = int(y0 + 1000*(a))
+
+            x2 = int(x0 - 1000*(-b))
+            y2 = int(y0 - 1000*(a))
+ 
+            cv2.line(edges_color, (x1, y1), (x2, y2), (0, 0, 255), 2)
+
+        angle = abs(lines[0][1] - lines[1][1])
         angle = angle * (180 / np.pi)
         print(angle)
+
+        cv2.imshow("image", edges_color)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
+    
+        # houghSpace, magnitudes, angles = houghTransform(edges, 180, 0.0)
+        # lines = findMaxima(houghSpace, magnitudes, angles)        
+        # angle = abs(lines[0][1] - lines[1][1])
+        
+        # if (angle > np.pi):
+        #     angle = 2.0 * np.pi - angle
+            
+        # angle = angle * (180 / np.pi)
+        # print(angle)
         
 
 # Find the angle specified by the 3 points identified
@@ -80,61 +115,58 @@ def findEdges(image, highFraction = 0.6, lowFraction = 0.2):
     for y in range(1, edges.shape[0] - 1):
         for x in range(1, edges.shape[1] - 1):
             
-            angle = direction[y, x]
-            pi = np.pi
-            
             f = 255
             b = 255
-            
-            #right
-            if (0 <= angle < pi / 8) or (7 * pi / 8 <= angle <= pi):
-                f = edges[y, x + 1]
-                b = edges[y, x - 1]
-            #down-right
-            elif (pi / 8 <= angle < 3 * pi / 8):
-                f = edges[y + 1, x - 1]
-                b = edges[y - 1, x + 1]
-            #down
-            elif (3 * pi / 8 <= angle < 5 * pi / 8):
-                f = edges[y + 1, x]
-                b = edges[y - 1, x]
-            #down-left
-            elif (5 * pi / 8 <= angle < 7 * pi / 8):
+
+            angle = direction[y, x] * 180 / np.pi
+            angle = abs(angle)
+
+            if (angle >= 0 and angle < 22.5) or (angle >= 157.5 and angle <= 180):
+                f = edges[y - 1, x + 1]
+                b = edges[y + 1, x - 1]
+            elif (angle >= 22.5 and angle < 67.5):
+                f = edges[y - 1, x]
+                b = edges[y + 1, x]
+            elif (angle >= 67.5 and angle < 112.5):
                 f = edges[y - 1, x - 1]
                 b = edges[y + 1, x + 1]
-
+            elif (angle >= 112.5 and angle < 157.5):
+                f = edges[y, x - 1]
+                b = edges[y, x + 1]
+           
+           
             if (edges[y, x] >= f) and (edges[y, x] >= b):
                 supressionMat[y, x] = edges[y, x]
 
     edges = supressionMat
 
-    #DOUBLE THRESHOLD
-    highThreshold = edges.max() * highFraction
-    lowThreshold = edges.max() * lowFraction
+    # #DOUBLE THRESHOLD
+    # highThreshold = edges.max() * highFraction
+    # lowThreshold = edges.max() * lowFraction
 
-    thresholdMat = np.zeros_like(edges)
+    # thresholdMat = np.zeros_like(edges)
 
-    strongI = np.where(edges > highThreshold)
-    weakI = np.where((edges <= highThreshold) & (edges >= lowThreshold))
+    # strongI = np.where(edges > highThreshold)
+    # weakI = np.where((edges <= highThreshold) & (edges >= lowThreshold))
 
-    thresholdMat[strongI] = 255
-    thresholdMat[weakI] = 50
+    # thresholdMat[strongI] = 255
+    # thresholdMat[weakI] = 50
 
-    edges = thresholdMat
+    # edges = thresholdMat
 
     
-    #HYSTERESIS
+    # #HYSTERESIS
 
-    for y in range(1, edges.shape[0] - 1):
-        for x in range(1, edges.shape[1] - 1):
-            if (edges[y, x] == 50):
-                if (edges[y - 1, x - 1] == 255) or (edges[y - 1, x] == 255) or \
-                (edges[y - 1, x + 1] == 255) or (edges[y, x - 1] == 255) or \
-                (edges[y, x + 1] == 255) or (edges[y + 1, x - 1] == 255) or \
-                (edges[y + 1, x] == 255) or (edges[y + 1, x + 1] == 255):
-                    edges[y, x] = 255
-                else:
-                    edges[y, x] = 0
+    # for y in range(1, edges.shape[0] - 1):
+    #     for x in range(1, edges.shape[1] - 1):
+    #         if (edges[y, x] == 50):
+    #             if (edges[y - 1, x - 1] == 255) or (edges[y - 1, x] == 255) or \
+    #             (edges[y - 1, x + 1] == 255) or (edges[y, x - 1] == 255) or \
+    #             (edges[y, x + 1] == 255) or (edges[y + 1, x - 1] == 255) or \
+    #             (edges[y + 1, x] == 255) or (edges[y + 1, x + 1] == 255):
+    #                 edges[y, x] = 255
+    #             else:
+    #                 edges[y, x] = 0
 
     return edges
 
@@ -148,6 +180,7 @@ def findLines(edges):
     lines = cv2.HoughLinesP(edges, rho, theta, threshold, minLineLength=98, maxLineGap=48)
 
     return lines
+
 
 # Try to identify the 3 points of the angle (end points and intersection)
 # Input: Detected lines, each represented by start and end coordinates in the format [[x1, y1, x2, y2]]
