@@ -1,14 +1,33 @@
 import argparse
+import pandas as pd
+import cv2
 
+import task1
 
 def testTask1(folderName):
     # assume that this folder name has a file list.txt that contains the annotation
-    task1Data = pd.read_csv(folderName+"/list.txt")
-    # Write code to read in each image
-    # Write code to process the image
-    # Write your code to calculate the angle and obtain the result as a list predAngles
-    # Calculate and provide the error in predicting the angle for each image
-    return(totalError)
+    task1Data = pd.read_csv(folderName + "/list.txt")
+    images = task1Data["FileName"].tolist()
+    testAngles = task1Data["AngleInDegrees"].tolist()
+    
+    predAngles = []
+    totalError = 0
+    
+    for i in range(1, len(images)):
+        image = cv2.imread(folderName + "/" + images[i])
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        
+        edges = task1.findEdges(image)
+        houghSpace, magnitudes, angles, voters = task1.houghTransform(edges, 180, 0.0)
+        lines = task1.findMaxima(houghSpace, magnitudes, angles, voters)  
+
+        angle, _, _ = task1.calculateAngle(lines)
+        predAngles.append(angle)
+        error = abs(angle - testAngles[i])
+        totalError += error
+    
+    print(totalError)
+    return (totalError)
 
 def testTask2(iconDir, testDir):
     # assume that test folder name has a directory annotations with a list of csv files
@@ -29,7 +48,6 @@ def testTask3(iconFolderName, testFolderName):
 
 
 if __name__ == "__main__":
-
     # parsing the command line path to directories and invoking the test scripts for each task
     parser = argparse.ArgumentParser("Data Parser")
     parser.add_argument("--Task1Dataset", help="Provide a folder that contains the Task 1 Dataset.", type=str, required=False)
