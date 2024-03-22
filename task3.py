@@ -41,13 +41,13 @@ def findMatchingPoints(icon, image, distanceThreshold, zScoreThreshold):
 # Input: initial array; threshold for outlier detection
 # Output: array with outliers removed
 def removeOutliers(data, threshold):
+
     # zscore gives a measure of how far an element is from the mean
     zScores = np.abs(stats.zscore(data))
 
     # Removes all elements with the zscore for x or y greater than the threshold
     cleanedData = []
     for i in range(len(data)):
-        # Maybe change this to combination of zscore for x and y?
         if zScores[i][0] <= threshold and zScores[i][1] <= threshold:
             cleanedData.append(data[i])
 
@@ -72,11 +72,11 @@ def findBoundingSquare(matchingPoints):
 
     return ((int(leftmostPoint), int(bottommostPoint)), (int(rightmostPoint), int(topmostPoint)))
 
-def findIconInImage(icon, iconName, image, pointsThreshold):
+def findIconInImage(icon, iconName, image, pointsThreshold, distanceThreshold, zScoreThreshold):
     originalImage = image
 
     # Finds the matching points of the icon in the image, if they exist
-    matchingPoints = findMatchingPoints(icon, image, 1250, 2)
+    matchingPoints = findMatchingPoints(icon, image, distanceThreshold, zScoreThreshold)
 
     # Finds the centre of these points, if there are enough to constitute a match
     if len(matchingPoints) >= pointsThreshold:
@@ -94,7 +94,7 @@ def findIconInImage(icon, iconName, image, pointsThreshold):
         # print(boundingPoints)
         textPosition = (boundingPoints[0][0], boundingPoints[1][1] + 15)
         font = cv2.FONT_HERSHEY_SIMPLEX
-        matchesImage = cv2.putText(matchesImage, iconName, textPosition, font, 0.5, (0, 0, 255))
+        matchesImage = cv2.putText(matchesImage, iconName, textPosition, font, 0.5, (0, 0, 0))
 
         return matchesImage
     # Otherwise it does not exist in the image
@@ -103,26 +103,36 @@ def findIconInImage(icon, iconName, image, pointsThreshold):
         return originalImage
 
 def main():
-    # Determines how many matching points are needed to count as a match
+    # Determines how many matching points are needed to count as a match, higher means stricter
     pointsThreshold = 10
+    # Determines how similar two points have to be to count as a match, lower means stricter
+    distanceThreshold = 1000
+    # Threshold for removing spatial outliers, lower means stricter
+    zScoreThreshold = 1
 
     # Icon is the smaller image to search for, image is the larger image to search in
-    imagePaths = os.listdir('./Task3Dataset/images/')
+    imagesLocation = './Task3Dataset/images/'
+    imagePaths = os.listdir(imagesLocation)
     iconPaths = os.listdir('./IconDataset/png/')
     iconNames = ["Lighthouse", "Bike", "Bridge1", "Bridge", "Silo", "Church", "Supermarket", "Courthouse", "Airport", "Bench", "Bin", "Bus", "Water Well", "Flower",
                  "Barn", "House", "Cinema", "Bank", "Prison", "ATM", "Solar Panel", "Car", "Traffic Light", "Fountain", "Factory", "Shop", "Petrol Station", "Government",
                  "Theatre", "Telephone Box", "Field", "Van", "Hydrant", "Billboard", "Police Station", "Hotel", "Post Office", "Library", "University", "Bus Stop", "Windmill",
                  "Tractor", "Sign", "Ferris Wheel", "Museum", "Fire Station", "Restaurant", "Hospital", "School", "Cemetery"]
+    
+    icons = []
+    for iconPath in iconPaths:
+        path = './IconDataset/png/' + iconPath
+        icon = cv2.imread(path)
+        # Slight blurring seems to remove false positives
+        icon = cv2.blur(icon, (2, 2))
+        icons.append(icon)
 
     for i in range(len(imagePaths)):
-        imagePath = './Task3Dataset/images/' + imagePaths[i]
+        imagePath = imagesLocation + imagePaths[i]
         image = cv2.imread(imagePath)
 
         for j in range(len(iconPaths)):
-            iconPath = './IconDataset/png/' + iconPaths[j]
-            icon = cv2.imread(iconPath)
-    
-            image = findIconInImage(icon, iconNames[j], image, pointsThreshold)
+            image = findIconInImage(icons[j], iconNames[j], image, pointsThreshold, distanceThreshold, zScoreThreshold)
 
         if type(image) == np.ndarray:
             # cv2.imshow('image', cv2.resize(image, (800, 600)))
@@ -133,6 +143,7 @@ def main():
             #     cv2.destroyAllWindows()
 
             cv2.imwrite("./Task3OutputImages/" + imagePaths[i], image)
+            print("Image", i + 1, "done")
     
 
 main()
