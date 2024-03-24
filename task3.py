@@ -8,7 +8,7 @@ from scipy import stats
 # Input: icon filepath; image filepath; threshold for accepting a match exists;
 # threshold for rejecting outliers
 # Output: array of matching points, each in the form [x, y]
-def findMatchingPoints(icon, image, distanceThreshold, zScoreThreshold):
+def findMatchingPoints(icon, image, distanceThreshold):
     icon = cv2.cvtColor(icon, cv2.COLOR_RGB2GRAY)
     image = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
 
@@ -31,84 +31,72 @@ def findMatchingPoints(icon, image, distanceThreshold, zScoreThreshold):
             matchedImagePoints.append(keypoints2[match.trainIdx])
             # print(match.imgIdx, match.queryIdx, match.trainIdx)
     
-    # Removes outlier points to narrow down icon location
     matchedImagePoints = cv2.KeyPoint_convert(matchedImagePoints)
-    matchedImagePoints = removeOutliers(matchedImagePoints, zScoreThreshold)
 
     return matchedImagePoints
 
-# Takes in a numpy array, returns numpy array with outliers removed
-# Input: initial array; threshold for outlier detection
-# Output: array with outliers removed
-def removeOutliers(data, threshold):
+def findBoundingRectangles(image):
+    # Tried using thresholding to solve problem of incorrect edge detection (doesn't identify grey edges),
+    # neither this didn't seemed to help
+    # returnValue, thresholdedImage = cv2.threshold(grey, 240, 255, cv2.THRESH_BINARY)
 
-    # zscore gives a measure of how far an element is from the mean
-    zScores = np.abs(stats.zscore(data))
+    # Conversion to greyscale seems to work better
+    grey = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
+    edges = cv2.Canny(grey, 100, 500)
+    contours, hierarchy = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE) 
+    # cv2.drawContours(image, contours, -1, (0, 255, 0), 3)
+    
+    # Create a list of bounding boxes, round each continuous contour
+    boundingRectangles = []
+    maxContourArea = 0
+    for contour in contours:
+        rectangle = cv2.boundingRect(contour)
+        if cv2.contourArea(contour) > maxContourArea:
+            maxContourArea = cv2.contourArea(contour)
+        # Removes boxes created by noise in the data
+        if cv2.contourArea(contour) >= 100:
+            boundingRectangles.append(rectangle)
+    print(maxContourArea)
 
-    # Removes all elements with the zscore for x or y greater than the threshold
-    cleanedData = []
-    for i in range(len(data)):
-        if zScores[i][0] <= threshold and zScores[i][1] <= threshold:
-            cleanedData.append(data[i])
+    return boundingRectangles
 
-    return cleanedData
-
-def findBoundingSquare(matchingPoints):
-    leftmostPoint = 1000
-    rightmostPoint = 0
-    bottommostPoint = 1000
-    topmostPoint = 0
-
-    for point in matchingPoints:
-        if point[0] < leftmostPoint:
-            leftmostPoint = point[0]
-        elif point[0] > rightmostPoint:
-            rightmostPoint = point[0]
-
-        if point[1] < bottommostPoint:
-            bottommostPoint = point[1]
-        elif point[1] > topmostPoint:
-            topmostPoint = point[1]
-
-    return ((int(leftmostPoint), int(bottommostPoint)), (int(rightmostPoint), int(topmostPoint)))
-
-def findIconInImage(icon, iconName, image, pointsThreshold, distanceThreshold, zScoreThreshold):
-    originalImage = image
-
+def findIconInImage(icon, iconName, image, pointsThreshold, distanceThreshold, boundingRectangles):
     # Finds the matching points of the icon in the image, if they exist
-    matchingPoints = findMatchingPoints(icon, image, distanceThreshold, zScoreThreshold)
+    matchingPoints = findMatchingPoints(icon, image, distanceThreshold)
 
-    # Finds the centre of these points, if there are enough to constitute a match
-    if len(matchingPoints) >= pointsThreshold:
-        centre = np.mean(matchingPoints, axis = 0)
+    bestMatch = 0
+    bestMatchNumber = 0
+    for i in range(len(boundingRectangles)):
+        x, y, width, height = boundingRectangles[i]
+
+        matchNumber = 0
+        for point in matchingPoints:
+            if point[0] >= x and point[0] <= x + width:
+                if point[1] >= y and point[1] <= y + height:
+                    matchNumber += 1
+
+        if matchNumber > bestMatchNumber:
+            bestMatchNumber = matchNumber
+            bestMatch = i
+        if matchNumber == bestMatchNumber:
+            originalSize = boundingRectangles[bestMatch]
+            originalSize = originalSize[2] * originalSize[3]
+            newSize = width * height
+            if newSize > originalSize:
+                bestMatchNumber = matchNumber
+                bestMatch = i
+
+    if bestMatchNumber > pointsThreshold:
+        x, y, width, height = boundingRectangles[bestMatch]
+        return (bestMatch, bestMatchNumber, iconName)
     else:
-        centre = None
-
-    # If the icon does exist in the image, draw a circle where the detected centre is
-    if type(centre) == np.ndarray:
-        # Add dot at centre of icon
-        matchesImage = cv2.circle(originalImage, (int(centre[0]), int(centre[1])), radius=5, color=(255, 0, 255), thickness=-1)
-
-        boundingPoints = findBoundingSquare(matchingPoints)
-        matchesImage = cv2.rectangle(matchesImage, boundingPoints[0], boundingPoints[1], color = (0, 0, 255))
-        # print(boundingPoints)
-        textPosition = (boundingPoints[0][0], boundingPoints[1][1] + 15)
-        font = cv2.FONT_HERSHEY_SIMPLEX
-        matchesImage = cv2.putText(matchesImage, iconName, textPosition, font, 0.5, (0, 0, 0))
-
-        return matchesImage
-    # Otherwise it does not exist in the image
-    else:
-        # print("No Match")
-        return originalImage
+        return None
 
 def main():
     # Determines how many matching points are needed to count as a match, higher means stricter
-    pointsThreshold = 10
+    pointsThreshold = 5
     # Determines how similar two points have to be to count as a match, lower means stricter
     distanceThreshold = 1000
-    # Threshold for removing spatial outliers, lower means stricter
-    zScoreThreshold = 1
 
     # Icon is the smaller image to search for, image is the larger image to search in
     imagesLocation = './Task3Dataset/images/'
@@ -124,15 +112,44 @@ def main():
         path = './IconDataset/png/' + iconPath
         icon = cv2.imread(path)
         # Slight blurring seems to remove false positives
-        icon = cv2.blur(icon, (2, 2))
+        # icon = cv2.blur(icon, (2, 2))
         icons.append(icon)
 
     for i in range(len(imagePaths)):
         imagePath = imagesLocation + imagePaths[i]
         image = cv2.imread(imagePath)
 
+        boundingRectangles = findBoundingRectangles(image)
+
+        # Limits each bounding box to at most one matching icon, using the closest one, to limit false positives
+        bestMatchInfo = []
         for j in range(len(iconPaths)):
-            image = findIconInImage(icons[j], iconNames[j], image, pointsThreshold, distanceThreshold, zScoreThreshold)
+            bestMatch = findIconInImage(icons[j], iconNames[j], image, pointsThreshold, distanceThreshold, boundingRectangles)
+            if bestMatch != None:
+                bestMatchInfo.append(bestMatch)
+
+        for j in range(len(boundingRectangles)):
+            bestMatch = 0
+            bestMatchNumber = 0
+
+            x, y, width, height = boundingRectangles[j]
+
+            for k in range(len(bestMatchInfo)):
+                if bestMatchInfo[k][0] == j:
+                    if bestMatchInfo[k][1] > bestMatchNumber:
+                        bestMatch = k
+                        bestMatchNumber = bestMatchInfo[k][1]
+
+            if bestMatchNumber > 0:
+                x, y, width, height = boundingRectangles[bestMatchInfo[bestMatch][0]]
+                iconName = bestMatchInfo[bestMatch][2]
+                print(f"Icon: {iconName}, Position (x, y, width, height): {x, y, width, height}")
+                cv2.rectangle(image, (x, y), (x + width, y + height), (0, 255, 0), 2)
+                cv2.putText(image, iconName, (x + width + 10,y + height), 0, 0.3, (0, 255, 0))
+
+
+        cv2.imshow('image', cv2.resize(image, (800, 600)))
+        k = cv2.waitKey(0) & 0xff
 
         if type(image) == np.ndarray:
             # cv2.imshow('image', cv2.resize(image, (800, 600)))
