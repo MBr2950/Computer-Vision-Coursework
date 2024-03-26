@@ -13,7 +13,7 @@ def testTask1(folderName):
     predAngles = []
     totalError = 0
     
-    for i in range(1, len(images)):
+    for i in range(0, len(images)):
         image = cv2.imread(folderName + "/" + images[i])
         image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         
@@ -25,6 +25,8 @@ def testTask1(folderName):
         predAngles.append(angle)
         error = abs(angle - testAngles[i])
         totalError += error
+        
+        print(images[i] + ", Predicted angle:" + str(round(angle)), "Actual angle:" + str(testAngles[i]), "Error:" + str(round(error)))
     
     print(totalError)
     return (totalError)

@@ -1,18 +1,16 @@
 import cv2
 import numpy as np
+import random
 
 def main():
-    for i in range(1, 11):
-        image = cv2.imread("./Task1Dataset/image" + str(i) + ".png")
+    for i in range(9, 21):
+        image = cv2.imread("./angleData/image" + str(i) + ".png")
         image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
         cv2.imshow("image", image)
         cv2.waitKey(0)
         
         edges = findEdges(image)
-        
-        cv2.imshow("image", edges)
-        cv2.waitKey(0)
 
         houghSpace, magnitudes, angles, voters = houghTransform(edges, 180, 0.0)
         lines = findMaxima(houghSpace, magnitudes, angles, voters)  
@@ -26,8 +24,8 @@ def main():
         for line in lines:
             r, theta, _, voter= line
 
-            a = np.sin(theta)
-            b = np.cos(theta)
+            a = np.cos(theta)
+            b = np.sin(theta)
             
             x0 = a*r
             y0 = b*r
@@ -59,25 +57,30 @@ def calculateAngle(lines : list):
         
         # Find intersection of lines
         r1, theta1, _, voter1 = lines[0]
-        r2, theta2, _, voter2 = lines[1] 
+        r2, theta2, _, voter2 = lines[1]
         
-        A = np.array([[np.sin(theta1), -np.sin(theta2)],
-                    [-np.cos(theta1), np.cos(theta2)]])
+        ax = r1 * np.cos(theta1)
+        ay = r1 * np.sin(theta1)
+        vx = np.sin(theta1)
+        vy = -np.cos(theta1)
         
-        B = np.array([r1 * np.cos(theta1) - r2 * np.cos(theta2), r1 * np.sin(theta1) - r2 * np.sin(theta2)])
+        bx = r2 * np.cos(theta2)
+        by = r2 * np.sin(theta2)
+        wx = np.sin(theta2)
+        wy = -np.cos(theta2)
+         
+        t = (bx * wy - (by * wx) - (ax * wy) + (ay * wx)) / (vx * wy - (vy * wx))
         
-        t, _ = np.linalg.solve(A, B)
-        
-        intersectionX = r1 * np.sin(theta1) + t * np.cos(theta1)
-        intersectionY = r1 * np.cos(theta1) + t *(-np.sin(theta1))
+        intersectionX = ax + t * vx
+        intersectionY = ay + t * vy
         
         # Use points which voted for lines
         dot = np.dot(voter1 - (int(intersectionX), int(intersectionY)), voter2 - (int(intersectionX), int(intersectionY)))
         
         # Fix incorrect obtuse
-        if (dot < 0) and (angle < np.pi / 2):
+        if ((dot < 0 and angle < np.pi / 2) or (dot > 0 and angle > np.pi / 2)):
             angle = np.pi - angle
-        
+            
         # Convert angle to degrees
         angle = angle * (180 / np.pi)
         
@@ -171,8 +174,8 @@ def houghTransform(image : np.ndarray, angleCount : int, edgeThreshold : float):
     # Length of the longest diagonal from corner to corner of the image
     diagonalLength = np.sqrt(width ** 2.0 + height ** 2.0)
     
-    magnitudesCount = int(2 * diagonalLength)
-    magnitudes = np.linspace(0.0, diagonalLength, magnitudesCount)
+    magnitudesCount = int(4*diagonalLength)
+    magnitudes = np.linspace(-diagonalLength, diagonalLength, magnitudesCount)
     
     angles = np.arange(0.0, np.pi, np.pi / angleCount)
      
@@ -186,8 +189,8 @@ def houghTransform(image : np.ndarray, angleCount : int, edgeThreshold : float):
             if (image[y, x] > edgeThreshold):
                 for k in range(len(angles)):
                     angle = angles[k]
-                    magnitude = y * np.cos(angle) + x * np.sin(angle)
-                    magnitude = round(magnitude * (magnitudesCount / diagonalLength))
+                    magnitude = x * np.cos(angle) + y * np.sin(angle)
+                    magnitude = round((magnitude + diagonalLength) * 2)
                     hough[int(magnitude), k] += 1
                     
                     # Pick a point to be used to check direction of line segment (picked 5th point arbitrarily)
@@ -212,11 +215,61 @@ def findMaxima(hough : np.ndarray, magnitudes : np.ndarray, angles : np.ndarray,
     
     # Discard lines which are duplicates
     bestLines = maxima[:2]
-    while (abs(bestLines[0][1] - bestLines[1][1]) < 0.05):
+    while (abs(bestLines[0][1] - bestLines[1][1]) < 0.1):
         del maxima[0]
         bestLines = maxima[:2]
         
     return bestLines
 
+def generateTestImage():
+    # width = random.randrange(300, 1000)
+    # height = random.randrange(300, 1000)
+    width = 854
+    height = 480
+    
+    intersection = np.array([random.randrange(20, width - 20), random.randrange(20, height - 20)])
+    
+    smallestAngle = 10
+    angles = [0, 0]
+    angles[0] = random.randrange(0, 360)
+    angles[1] = random.randrange(angles[0] + smallestAngle, angles[0] + 180)
+    
+    angle = angles[1] - angles[0]
+    
+    # Create image
+    #backgroundColour = (random.randrange(0, 255), random.randrange(0, 255), random.randrange(0, 255))
+    backgroundColour = (0, 0, 0)
+    image = np.full((height, width, 3), backgroundColour, np.uint8)
+    
+    # Ensure line colour different from background colour
+    lineColour = (255, 255, 255)
+    # lineColour = (random.randrange(0, 255), random.randrange(0, 255), random.randrange(0, 255))
+    # while (lineColour == backgroundColour):
+    #     lineColour = (random.randrange(0, 255), random.randrange(0, 255), random.randrange(0, 255))
+    
+    #lineThickness = random.randrange(2, 5)
+    lineThickness = 1
+    
+    # Draw lines
+    for i in range(2):
+        length = random.randrange(30, 200)
+        angles[i] *= np.pi / 180
+        point = intersection + length * np.array([np.cos(angles[i]), np.sin(angles[i])])
+        cv2.line(image, intersection, (int(point[0]), int(point[1])), lineColour, lineThickness)
+        
+    return image, angle
+
+def createTestData(n, folder):
+    textFile = open(folder +"/list.txt", "w")
+    textFile.write("FileName,AngleInDegrees\n")
+    
+    for i in range(1, n + 1):
+        image, angle = generateTestImage()
+        cv2.imwrite(folder + "/image" + str(i) + ".png", image)
+        textFile.write("image" + str(i) + ".png," + str(angle) + "\n")
+        
+    textFile.close()
+
 if __name__=="__main__":
+    #createTestData(20, "angleData")
     main()
