@@ -1,3 +1,5 @@
+# TODO: Use minAreaRect to find orientation, add parallelism
+
 import numpy as np
 import cv2
 import os
@@ -5,134 +7,199 @@ import os
 from scipy import stats
 
 # Searches for an icon in an image
-# Input: icon filepath; image filepath; threshold for accepting a match exists;
-# threshold for rejecting outliers
+# Input: icon cv2 image; image cv2 image; threshold for accepting a match exists;
+# keypoint descriptors for image; keypoint locations for image; keypoint descriptors for icon
 # Output: array of matching points, each in the form [x, y]
-def findMatchingPoints(icon, image, distanceThreshold, zScoreThreshold):
-    icon = cv2.cvtColor(icon, cv2.COLOR_RGB2GRAY)
-    image = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
-
-    sift = cv2.SIFT_create()
-
-    # each descriptor is an array, kinda like a hash of the point 
-    keypoints1, descriptors1 = sift.detectAndCompute(icon, None)
-    keypoints2, descriptors2 = sift.detectAndCompute(image, None)
-    # print(cv2.KeyPoint_convert(keypoints2))
-
-    bf = cv2.BFMatcher(cv2.NORM_L1, crossCheck=True)
-
-    matches = bf.match(descriptors1, descriptors2)
+def findMatchingPoints(icon, image, distanceThreshold, imageDescriptors, imageKeypoints, iconDescriptors):
+    # Uses sift to generate list of matching points between icon and image
+    bf = cv2.BFMatcher(cv2.NORM_L1, crossCheck = True)
+    matches = bf.match(iconDescriptors, imageDescriptors)
+    # Sorts the matches in ascending order, starting with the closest match 
     matches = sorted(matches, key = lambda x: x.distance)
 
     # Add all keypoints in the test image that match a keypoint in the icon to array
     matchedImagePoints = []
     for match in matches:
         if match.distance < distanceThreshold:
-            matchedImagePoints.append(keypoints2[match.trainIdx])
+            matchedImagePoints.append(imageKeypoints[match.trainIdx])
             # print(match.imgIdx, match.queryIdx, match.trainIdx)
     
-    # Removes outlier points to narrow down icon location
+    # Returns matched points in an easier to use format
     matchedImagePoints = cv2.KeyPoint_convert(matchedImagePoints)
-    matchedImagePoints = removeOutliers(matchedImagePoints, zScoreThreshold)
-
     return matchedImagePoints
 
-# Takes in a numpy array, returns numpy array with outliers removed
-# Input: initial array; threshold for outlier detection
-# Output: array with outliers removed
-def removeOutliers(data, threshold):
-    # zscore gives a measure of how far an element is from the mean
-    zScores = np.abs(stats.zscore(data))
+# Generates bounding rectangles around all closed shapes in an image
+# Input: image as cv2 image
+# Output: tuple of bounding rectangles, all in the format [x, y, width, height]
+def findBoundingRectangles(image):
+    # Conversion to greyscale seems to work better
+    grey = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
 
-    # Removes all elements with the zscore for x or y greater than the threshold
-    cleanedData = []
-    for i in range(len(data)):
-        # Maybe change this to combination of zscore for x and y?
-        if zScores[i][0] <= threshold and zScores[i][1] <= threshold:
-            cleanedData.append(data[i])
+    # Tried using thresholding to solve problem of incorrect edge detection (doesn't identify grey edges),
+    # neither this didn't seemed to help
+    # returnValue, grey = cv2.threshold(grey, 240, 255, cv2.THRESH_BINARY)
 
-    return cleanedData
+    # Detects edges, then converts this to a contour map
+    edges = cv2.Canny(grey, 100, 200)
+    contours, hierarchy = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE) 
+    # cv2.drawContours(image, contours, -1, (0, 255, 0), 3)
+    
+    
+    # Create a list of bounding boxes, round each continuous contour
+    boundingRectangles = []
+    # maxContourArea = 0
+    for contour in contours:
+        rectangle = cv2.boundingRect(contour)
+        # if cv2.contourArea(contour) > maxContourArea:
+        #     maxContourArea = cv2.contourArea(contour)
+        # Removes small boxes created by noise in the data
+        if cv2.contourArea(contour) >= 100:
+            boundingRectangles.append(rectangle)
+            # cv2.rectangle(image, (rectangle[0], rectangle[1]), (rectangle[0] + rectangle[2], rectangle[1] + rectangle[3]), (0, 255, 0))
+    # print(maxContourArea)
+    
+    # cv2.imshow('image', cv2.resize(image, (800, 600)))
+    # k = cv2.waitKey(0) & 0xff
 
-def findBoundingSquare(matchingPoints):
-    leftmostPoint = 1000
-    rightmostPoint = 0
-    bottommostPoint = 1000
-    topmostPoint = 0
+    return boundingRectangles
 
-    for point in matchingPoints:
-        if point[0] < leftmostPoint:
-            leftmostPoint = point[0]
-        elif point[0] > rightmostPoint:
-            rightmostPoint = point[0]
-
-        if point[1] < bottommostPoint:
-            bottommostPoint = point[1]
-        elif point[1] > topmostPoint:
-            topmostPoint = point[1]
-
-    return ((int(leftmostPoint), int(bottommostPoint)), (int(rightmostPoint), int(topmostPoint)))
-
-def findIconInImage(icon, iconName, image, pointsThreshold):
-    originalImage = image
-
+# Given one icon, tries to find if it exists in one image
+# Inputs: icon as a cv2 image; icon's name, for labelling; threshold for determining how many points to count a match;
+# threshold for determining if two points match; list of bounding rectangles of shapes in image; list of keypoint descriptors in image;
+# list of keypoint locations in image; list of keypoint descriptors in icon
+# Output: tuple of information about the bounding box most likely to contain the icon
+def findIconInImage(icon, iconName, image, pointsThreshold, distanceThreshold, boundingRectangles, imageDescriptors, imageKeypoints, iconDescriptors):
     # Finds the matching points of the icon in the image, if they exist
-    matchingPoints = findMatchingPoints(icon, image, 1250, 2)
+    matchingPoints = findMatchingPoints(icon, image, distanceThreshold, imageDescriptors, imageKeypoints, iconDescriptors)
 
-    # Finds the centre of these points, if there are enough to constitute a match
-    if len(matchingPoints) >= pointsThreshold:
-        centre = np.mean(matchingPoints, axis = 0)
+    # bestMatch is the index of the bounding box most likely to contain icon
+    bestMatch = 0
+    # bestMatchMagnitude is how many of the icon's points are in this box
+    bestMatchMagnitude = 0
+    for i in range(len(boundingRectangles)):
+        x, y, width, height = boundingRectangles[i]
+
+        # Check how many icon points are in each bounding box
+        matchNumber = 0
+        for point in matchingPoints:
+            if point[0] >= x and point[0] <= x + width:
+                if point[1] >= y and point[1] <= y + height:
+                    matchNumber += 1
+
+        # Only keep best matching box
+        if matchNumber > bestMatchMagnitude:
+            bestMatchMagnitude = matchNumber
+            bestMatch = i
+
+    # If there are enough points in any box to constitute a match, return information about that box 
+    if bestMatchMagnitude > pointsThreshold:
+        x, y, width, height = boundingRectangles[bestMatch]
+        return (bestMatch, bestMatchMagnitude, iconName)
     else:
-        centre = None
+        return None
 
-    # If the icon does exist in the image, draw a circle where the detected centre is
-    if type(centre) == np.ndarray:
-        # Add dot at centre of icon
-        matchesImage = cv2.circle(originalImage, (int(centre[0]), int(centre[1])), radius=5, color=(255, 0, 255), thickness=-1)
+# Finds the keypoints in each image and icon
+# Input: list of all images as cv2 images; list of all icons as cv2 images
+# Output: list of keypoint descriptors in image; list of keypoint locations in image; list of keypoint descriptors in icon
+def findKeyPoints(images, icons):
+    # Each descriptor is an array, kind of like a hash of the point 
+    imagesDescriptors = []
+    imagesKeypoints = []
+    iconsDescriptors = []
 
-        boundingPoints = findBoundingSquare(matchingPoints)
-        matchesImage = cv2.rectangle(matchesImage, boundingPoints[0], boundingPoints[1], color = (0, 0, 255))
-        # print(boundingPoints)
-        textPosition = (boundingPoints[0][0], boundingPoints[1][1] + 15)
-        font = cv2.FONT_HERSHEY_SIMPLEX
-        matchesImage = cv2.putText(matchesImage, iconName, textPosition, font, 0.5, (0, 0, 255))
+    # Uses SIFT to identify keypoints in each, converting to greyscale seems to help performance
+    sift = cv2.SIFT_create()
+    for image in images:
+        image = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
+        imageKeypoints, imageDescriptors = sift.detectAndCompute(image, None)
+        imagesKeypoints.append(imageKeypoints)
+        imagesDescriptors.append(imageDescriptors)
+    for icon in icons:
+        icon = cv2.cvtColor(icon, cv2.COLOR_RGB2GRAY)
+        iconKeypoints, iconDescriptors = sift.detectAndCompute(icon, None)
+        iconsDescriptors.append(iconDescriptors)
 
-        return matchesImage
-    # Otherwise it does not exist in the image
-    else:
-        # print("No Match")
-        return originalImage
-
+    # Icon keypoint location is unnecessary
+    return imagesDescriptors, imagesKeypoints, iconsDescriptors
+        
+# Identifies icons within images, saves images with bounding boxes around identified icons
+# Input: None
+# Output: None
 def main():
-    # Determines how many matching points are needed to count as a match
-    pointsThreshold = 10
+    # Determines how many matching points are needed to count as a match, higher means stricter
+    # For unrotated: 5, forrotated: 3
+    pointsThreshold = 3
+    # Determines how similar two points have to be to count as a match, lower means stricter
+    # For unrotated: 1000, for rotated: 1000
+    distanceThreshold = 1000
 
     # Icon is the smaller image to search for, image is the larger image to search in
-    imagePaths = os.listdir('./Task3Dataset/images/')
+    imagesLocation = './Task3Dataset/images/'
+    imagePaths = os.listdir(imagesLocation)
     iconPaths = os.listdir('./IconDataset/png/')
     iconNames = ["Lighthouse", "Bike", "Bridge1", "Bridge", "Silo", "Church", "Supermarket", "Courthouse", "Airport", "Bench", "Bin", "Bus", "Water Well", "Flower",
                  "Barn", "House", "Cinema", "Bank", "Prison", "ATM", "Solar Panel", "Car", "Traffic Light", "Fountain", "Factory", "Shop", "Petrol Station", "Government",
                  "Theatre", "Telephone Box", "Field", "Van", "Hydrant", "Billboard", "Police Station", "Hotel", "Post Office", "Library", "University", "Bus Stop", "Windmill",
                  "Tractor", "Sign", "Ferris Wheel", "Museum", "Fire Station", "Restaurant", "Hospital", "School", "Cemetery"]
-
-    for i in range(len(imagePaths)):
-        imagePath = './Task3Dataset/images/' + imagePaths[i]
-        image = cv2.imread(imagePath)
-
-        for j in range(len(iconPaths)):
-            iconPath = './IconDataset/png/' + iconPaths[j]
-            icon = cv2.imread(iconPath)
     
-            image = findIconInImage(icon, iconNames[j], image, pointsThreshold)
+    
+    # Reads all icons and images to cv2 images
+    images = []
+    icons = []
+    for imagePath in imagePaths:
+        imagePath = imagesLocation + imagePath
+        image = cv2.imread(imagePath)
+        images.append(image)
+    for iconPath in iconPaths:
+        path = './IconDataset/png/' + iconPath
+        icon = cv2.imread(path)
+        icons.append(icon)
 
-        if type(image) == np.ndarray:
-            # cv2.imshow('image', cv2.resize(image, (800, 600)))
+    # Identifies keypoint info in images and icons
+    imagesDescriptors, imagesKeypoints, iconsDescriptors = findKeyPoints(images, icons)
 
-            # k = cv2.waitKey(0) & 0xff
+    for i in range(len(images)):
+        # Finds all bounding rectangles within each image
+        boundingRectangles = findBoundingRectangles(images[i])
 
-            # if k == 27:
-            #     cv2.destroyAllWindows()
+        # Finds the bounding box the icon is most likely to fit in
+        bestMatchInfo = []
+        for j in range(len(iconPaths)):
+            bestMatch = findIconInImage(icons[j], iconNames[j], images[i], pointsThreshold, distanceThreshold, boundingRectangles,
+                                         imagesDescriptors[i], imagesKeypoints[i], iconsDescriptors[j])
+            if bestMatch != None:
+                bestMatchInfo.append(bestMatch)
 
-            cv2.imwrite("./Task3OutputImages/" + imagePaths[i], image)
+        # Limits each bounding box to at most one matching icon, using the closest one, to limit false positives
+        for j in range(len(boundingRectangles)):
+            bestMatch = 0
+            bestMatchMagnitude = 0
+
+            x, y, width, height = boundingRectangles[j]
+
+            for k in range(len(bestMatchInfo)):
+                match, matchMagnitude, _ = bestMatchInfo[k]
+                if match == j:
+                    if matchMagnitude > bestMatchMagnitude:
+                        bestMatch = k
+                        bestMatchMagnitude = matchMagnitude
+
+            # If a match does exist, draws the best on onto the image, and labels it
+            if bestMatchMagnitude > 0:
+                x, y, width, height = boundingRectangles[bestMatchInfo[bestMatch][0]]
+                iconName = bestMatchInfo[bestMatch][2]
+                print(f"Icon: {iconName}, Position (x, y, width, height): {x, y, width, height}")
+                cv2.rectangle(images[i], (x, y), (x + width, y + height), (0, 255, 0), 2)
+                cv2.putText(images[i], iconName, (x + width + 10,y + height), 0, 0.3, (0, 255, 0))
+
+
+        # cv2.imshow('image', cv2.resize(images[i], (800, 600)))
+        # k = cv2.waitKey(0) & 0xff
+
+        # Saves the image, if is of right type
+        if type(images[i]) == np.ndarray:
+            cv2.imwrite("./Task3OutputImages/" + imagePaths[i], images[i])
+            print("Image", i + 1, "done")
     
 
 main()
