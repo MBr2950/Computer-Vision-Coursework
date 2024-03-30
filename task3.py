@@ -4,6 +4,7 @@ import numpy as np
 import cv2
 import os
 import time
+from concurrent.futures import ThreadPoolExecutor
 
 # Searches for an icon in an image
 # Input: icon cv2 image; image cv2 image; threshold for accepting a match exists;
@@ -40,7 +41,7 @@ def matchPoints(descriptors1, descriptors2):
             if distance < best_distance:
                 best_match = j
                 best_distance = distance
-                
+
         # Compute distance from desc2 to desc1
         distance_reverse = np.linalg.norm(descriptors2[best_match] - desc1, ord=cv2.NORM_L2)
         # If the match is not symmetric, continue to the next descriptor in set 1
@@ -190,11 +191,18 @@ def main():
         # Finds all bounding rectangles within each image
         boundingRectangles = findBoundingRectangles(images[i])
 
+        # The function 'findIconInImage' takes up most of the runtime, so is worth paralellising
+        threadPool = ThreadPoolExecutor()
+        threads = []
+        for j in range(len(iconPaths)):
+            thread = threadPool.submit(findIconInImage, *[iconNames[j], pointsThreshold, distanceThreshold, boundingRectangles,
+                                         imagesDescriptors[i], imagesKeypoints[i], iconsDescriptors[j]])
+            threads.append(thread)
+
         # Finds the bounding box the icon is most likely to fit in
         bestMatchInfo = []
         for j in range(len(iconPaths)):
-            bestMatch = findIconInImage(iconNames[j], pointsThreshold, distanceThreshold, boundingRectangles,
-                                         imagesDescriptors[i], imagesKeypoints[i], iconsDescriptors[j])
+            bestMatch = threads[j].result()
             if bestMatch != None:
                 bestMatchInfo.append(bestMatch)
 
