@@ -3,17 +3,16 @@
 import numpy as np
 import cv2
 import os
-
-from scipy import stats
+import time
+from concurrent.futures import ThreadPoolExecutor
 
 # Searches for an icon in an image
 # Input: icon cv2 image; image cv2 image; threshold for accepting a match exists;
 # keypoint descriptors for image; keypoint locations for image; keypoint descriptors for icon
 # Output: array of matching points, each in the form [x, y]
-def findMatchingPoints(icon, image, distanceThreshold, imageDescriptors, imageKeypoints, iconDescriptors):
+def findMatchingPoints(distanceThreshold, imageDescriptors, imageKeypoints, iconDescriptors):
     # Uses sift to generate list of matching points between icon and image
-    bf = cv2.BFMatcher(cv2.NORM_L1, crossCheck = True)
-    matches = bf.match(iconDescriptors, imageDescriptors)
+    matches = matchPoints(iconDescriptors, imageDescriptors)
     # Sorts the matches in ascending order, starting with the closest match 
     matches = sorted(matches, key = lambda x: x.distance)
 
@@ -27,6 +26,31 @@ def findMatchingPoints(icon, image, distanceThreshold, imageDescriptors, imageKe
     # Returns matched points in an easier to use format
     matchedImagePoints = cv2.KeyPoint_convert(matchedImagePoints)
     return matchedImagePoints
+
+def matchPoints(descriptors1, descriptors2):
+    matches = []
+    # Loop through each descriptor in the first set
+    for i, desc1 in enumerate(descriptors1):
+        best_match = None
+        best_distance = float('inf')
+        # Loop through each descriptor in the second set
+        for j, desc2 in enumerate(descriptors2):
+            # Compute distance between descriptors
+            distance = np.linalg.norm(desc1 - desc2, ord=cv2.NORM_L2)
+            # Update best match if distance is smaller
+            if distance < best_distance:
+                best_match = j
+                best_distance = distance
+
+        # Compute distance from desc2 to desc1
+        distance_reverse = np.linalg.norm(descriptors2[best_match] - desc1, ord=cv2.NORM_L2)
+        # If the match is not symmetric, continue to the next descriptor in set 1
+        if distance_reverse > best_distance:
+            continue
+
+        # Append the best match to the list of matches
+        matches.append(cv2.DMatch(i, best_match, best_distance))
+    return matches
 
 # Generates bounding rectangles around all closed shapes in an image
 # Input: image as cv2 image
@@ -68,9 +92,9 @@ def findBoundingRectangles(image):
 # threshold for determining if two points match; list of bounding rectangles of shapes in image; list of keypoint descriptors in image;
 # list of keypoint locations in image; list of keypoint descriptors in icon
 # Output: tuple of information about the bounding box most likely to contain the icon
-def findIconInImage(icon, iconName, image, pointsThreshold, distanceThreshold, boundingRectangles, imageDescriptors, imageKeypoints, iconDescriptors):
+def findIconInImage(iconName,pointsThreshold, distanceThreshold, boundingRectangles, imageDescriptors, imageKeypoints, iconDescriptors):
     # Finds the matching points of the icon in the image, if they exist
-    matchingPoints = findMatchingPoints(icon, image, distanceThreshold, imageDescriptors, imageKeypoints, iconDescriptors)
+    matchingPoints = findMatchingPoints(distanceThreshold, imageDescriptors, imageKeypoints, iconDescriptors)
 
     # bestMatch is the index of the bounding box most likely to contain icon
     bestMatch = 0
@@ -92,7 +116,7 @@ def findIconInImage(icon, iconName, image, pointsThreshold, distanceThreshold, b
             bestMatch = i
 
     # If there are enough points in any box to constitute a match, return information about that box 
-    if bestMatchMagnitude > pointsThreshold:
+    if bestMatchMagnitude >= pointsThreshold:
         x, y, width, height = boundingRectangles[bestMatch]
         return (bestMatch, bestMatchMagnitude, iconName)
     else:
@@ -110,12 +134,12 @@ def findKeyPoints(images, icons):
     # Uses SIFT to identify keypoints in each, converting to greyscale seems to help performance
     sift = cv2.SIFT_create()
     for image in images:
-        image = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
+        # image = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
         imageKeypoints, imageDescriptors = sift.detectAndCompute(image, None)
         imagesKeypoints.append(imageKeypoints)
         imagesDescriptors.append(imageDescriptors)
     for icon in icons:
-        icon = cv2.cvtColor(icon, cv2.COLOR_RGB2GRAY)
+        # icon = cv2.cvtColor(icon, cv2.COLOR_RGB2GRAY)
         iconKeypoints, iconDescriptors = sift.detectAndCompute(icon, None)
         iconsDescriptors.append(iconDescriptors)
 
@@ -126,12 +150,14 @@ def findKeyPoints(images, icons):
 # Input: None
 # Output: None
 def main():
+    startTime = time.time()
+
     # Determines how many matching points are needed to count as a match, higher means stricter
-    # For unrotated: 5, forrotated: 3
-    pointsThreshold = 3
+    # For unrotated: 5, for rotated: 3
+    pointsThreshold = 5
     # Determines how similar two points have to be to count as a match, lower means stricter
-    # For unrotated: 1000, for rotated: 1000
-    distanceThreshold = 1000
+    # For unrotated: 50, for rotated: 1000
+    distanceThreshold = 50
 
     # Icon is the smaller image to search for, image is the larger image to search in
     imagesLocation = './Task3Dataset/images/'
@@ -158,15 +184,25 @@ def main():
     # Identifies keypoint info in images and icons
     imagesDescriptors, imagesKeypoints, iconsDescriptors = findKeyPoints(images, icons)
 
+    keypointsTime = time.time()
+    print("Time after identifying keypoints:", keypointsTime - startTime)
+
     for i in range(len(images)):
         # Finds all bounding rectangles within each image
         boundingRectangles = findBoundingRectangles(images[i])
 
+        # The function 'findIconInImage' takes up most of the runtime, so is worth paralellising
+        threadPool = ThreadPoolExecutor()
+        threads = []
+        for j in range(len(iconPaths)):
+            thread = threadPool.submit(findIconInImage, *[iconNames[j], pointsThreshold, distanceThreshold, boundingRectangles,
+                                         imagesDescriptors[i], imagesKeypoints[i], iconsDescriptors[j]])
+            threads.append(thread)
+
         # Finds the bounding box the icon is most likely to fit in
         bestMatchInfo = []
         for j in range(len(iconPaths)):
-            bestMatch = findIconInImage(icons[j], iconNames[j], images[i], pointsThreshold, distanceThreshold, boundingRectangles,
-                                         imagesDescriptors[i], imagesKeypoints[i], iconsDescriptors[j])
+            bestMatch = threads[j].result()
             if bestMatch != None:
                 bestMatchInfo.append(bestMatch)
 
@@ -188,7 +224,7 @@ def main():
             if bestMatchMagnitude > 0:
                 x, y, width, height = boundingRectangles[bestMatchInfo[bestMatch][0]]
                 iconName = bestMatchInfo[bestMatch][2]
-                print(f"Icon: {iconName}, Position (x, y, width, height): {x, y, width, height}")
+                print(f"Icon: {iconName}, Position (x, y, width, height): {x, y, width, height}, Number of Matches: {bestMatchMagnitude}")
                 cv2.rectangle(images[i], (x, y), (x + width, y + height), (0, 255, 0), 2)
                 cv2.putText(images[i], iconName, (x + width + 10,y + height), 0, 0.3, (0, 255, 0))
 
@@ -201,5 +237,7 @@ def main():
             cv2.imwrite("./Task3OutputImages/" + imagePaths[i], images[i])
             print("Image", i + 1, "done")
     
+    finalTime = time.time()
+    print("End Time:", finalTime - startTime)
 
 main()
