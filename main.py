@@ -18,15 +18,16 @@ def testTask1(folderName):
         image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         
         edges = task1.findEdges(image)
-        houghSpace, magnitudes, angles, voters = task1.houghTransform(edges, 180, 0.0)
+        houghSpace, magnitudes, angles, voters = task1.houghTransform(edges, 720, 0.0)
         lines = task1.findMaxima(houghSpace, magnitudes, angles, voters)  
 
-        angle, _, _ = task1.calculateAngle(lines)
+        angle, _, _, _ = task1.calculateAngle(lines)
         predAngles.append(angle)
         error = abs(angle - testAngles[i])
         totalError += error
         
-        print(images[i] + ", Predicted angle:" + str(round(angle)), "Actual angle:" + str(testAngles[i]), "Error:" + str(round(error)))
+        #print(images[i] + ", Predicted angle:" + str(round(angle)), "Actual angle:" + str(testAngles[i]), "Error:" + str(round(error)))
+        print(str(round(error)) + ",", end = "")
     
     print(totalError)
     return (totalError)
