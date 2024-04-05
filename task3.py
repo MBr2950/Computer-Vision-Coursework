@@ -255,7 +255,8 @@ def calculateIntersectionOverUnion(box1, box2):
 # Inputs: threshold for determining if two points match; threshold for determining how many points to count a match;
 # loss type used; path to folder containing icons; path to folder containing images; path to folder containing image annotations; 
 # path to folder to output images with bounding boxes
-# Output: None
+# Output: number of true positives, number of false positives, number of false negatives, average intersection over union, 
+# total runtime
 def main(distanceThreshold = 60, pointsThreshold = 1, losstype = cv2.NORM_L2, iconsLocation = './IconDataset/png/', 
          imagesLocation = './Task3Dataset/images/', annotationsLocation = './Task3Dataset/annotations/',
          outputLocation = "./Task3Dataset/output-images/"):
@@ -359,7 +360,7 @@ def main(distanceThreshold = 60, pointsThreshold = 1, losstype = cv2.NORM_L2, ic
         # Finds number of icons not detected, and average intersectionOverUnion (including false negatives,
         # on average how much do predicted bounding boxes line up with actual bounding boxes)
         falseNegatives = numIcons - truePositives
-        intersectionOverUnion = (intersectionOverUnions / numIcons) * 100
+        averageIntersectionOverUnion = (intersectionOverUnions / numIcons) * 100
 
         # Saves the image, if is of right type
         if type(images[i]) == np.ndarray:
@@ -369,8 +370,8 @@ def main(distanceThreshold = 60, pointsThreshold = 1, losstype = cv2.NORM_L2, ic
     finalTime = time.time() - startTime
     print("End Time:", finalTime)
 
-    print(f"True Positives: {truePositives}, False Positives: {falsePositives}, False Negatives: {falseNegatives}, IoU: {intersectionOverUnion}")
-    return(truePositives, falsePositives, falseNegatives, intersectionOverUnion, finalTime)
+    print(f"True Positives: {truePositives}, False Positives: {falsePositives}, False Negatives: {falseNegatives}, IoU: {averageIntersectionOverUnion}")
+    return truePositives, falsePositives, falseNegatives, averageIntersectionOverUnion, finalTime
 
 # Test the code for a number of different parameters
 if __name__ == '__main__':
