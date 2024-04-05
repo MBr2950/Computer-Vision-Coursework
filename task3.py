@@ -296,7 +296,7 @@ def main(distanceThreshold = 60, pointsThreshold = 1, losstype = cv2.NORM_L2, ic
     falsePositives = 0
     falseNegatives = 0
     numIcons = 0
-    intersectionOverUnions = 0
+    totalIntersectionOverUnion = 0
 
     # Finds icons in each image
     for i in range(len(images)):
@@ -347,12 +347,14 @@ def main(distanceThreshold = 60, pointsThreshold = 1, losstype = cv2.NORM_L2, ic
                 truePositive = False
                 for annotation in annotations:
                     if iconName == annotation[0]:
-                        truePositives += 1
-                        truePositive = True
-
                         x2 = x + width
                         y2 = y + height
-                        intersectionOverUnions += calculateIntersectionOverUnion((x, y, x2, y2), (int(annotation[1]), int(annotation[2]), int(annotation[3]), int(annotation[4])))
+                        intersectionOverUnion = calculateIntersectionOverUnion((x, y, x2, y2), (int(annotation[1]), int(annotation[2]), int(annotation[3]), int(annotation[4])))
+                        totalIntersectionOverUnion += intersectionOverUnion
+
+                        if intersectionOverUnion >= 0.5:
+                            truePositives += 1
+                            truePositive = True
 
                 if truePositive == False:
                     falsePositives += 1
@@ -360,7 +362,7 @@ def main(distanceThreshold = 60, pointsThreshold = 1, losstype = cv2.NORM_L2, ic
         # Finds number of icons not detected, and average intersectionOverUnion (including false negatives,
         # on average how much do predicted bounding boxes line up with actual bounding boxes)
         falseNegatives = numIcons - truePositives
-        averageIntersectionOverUnion = (intersectionOverUnions / numIcons) * 100
+        averageIntersectionOverUnion = (totalIntersectionOverUnion / numIcons) * 100
 
         # Saves the image, if is of right type
         if type(images[i]) == np.ndarray:
@@ -370,7 +372,7 @@ def main(distanceThreshold = 60, pointsThreshold = 1, losstype = cv2.NORM_L2, ic
     finalTime = time.time() - startTime
     print("End Time:", finalTime)
 
-    print(f"True Positives: {truePositives}, False Positives: {falsePositives}, False Negatives: {falseNegatives}, IoU: {averageIntersectionOverUnion}")
+    print(f"True Positives: {truePositives}, False Positives: {falsePositives}, False Negatives: {falseNegatives}, Average IoU: {averageIntersectionOverUnion}")
     return truePositives, falsePositives, falseNegatives, averageIntersectionOverUnion, finalTime
 
 # Test the code for a number of different parameters
@@ -380,7 +382,7 @@ if __name__ == '__main__':
         for distanceThreshold in range(0, 101, 5):
             print("\n")
             print(f"Distance Threshold: {distanceThreshold}, Points Threshold: {pointsThreshold}")
-            TPs, FPs, FNs, intersectionOverUnion, finalTime = main(distanceThreshold, pointsThreshold)
+            TPs, FPs, FNs, averageIntersectionOverUnion, finalTime = main(distanceThreshold, pointsThreshold)
 
             accuracy = TPs / (TPs + FPs + FNs)
             accuracy *= 100
@@ -388,8 +390,8 @@ if __name__ == '__main__':
             TPR = TPs / (TPs + FNs)
             TPR *= 100
 
-            accuracies.append((distanceThreshold, pointsThreshold, TPs, FPs, FNs, accuracy, TPR, intersectionOverUnion, finalTime))
+            accuracies.append((distanceThreshold, pointsThreshold, TPs, FPs, FNs, accuracy, TPR, averageIntersectionOverUnion, finalTime))
 
             print("\n")
             for line in accuracies:
-                print(f"Distance Threshold: {line[0]}, Points Threshold: {line[1]}, TPs: {line[2]}, FPs: {line[3]}, FNs: {line[4]}, Accuracy: {line[5]}%, TPR: {line[6]}%, IOU: {line[7]}%")
+                print(f"Distance Threshold: {line[0]}, Points Threshold: {line[1]}, TPs: {line[2]}, FPs: {line[3]}, FNs: {line[4]}, Accuracy: {line[5]}%, TPR: {line[6]}%, Average IOU: {line[7]}%")
