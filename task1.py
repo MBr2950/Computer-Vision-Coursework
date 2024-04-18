@@ -69,6 +69,10 @@ def calculateAngle(lines : list):
     by = r2 * np.sin(theta2)
     wx = np.sin(theta2)
     wy = -np.cos(theta2)
+    
+    if (vx * wy - (vy * wx) == 0):
+        # Would be divide by 0
+        return angle, 0, 0, (0, 0)
         
     t = (bx * wy - (by * wx) - (ax * wy) + (ay * wx)) / (vx * wy - (vy * wx))
     
@@ -230,7 +234,7 @@ def findMaxima(hough : np.ndarray, magnitudes : np.ndarray, angles : np.ndarray,
     # Discard lines which are duplicates
     bestLines = maxima[:2]
     angle = abs(bestLines[0][1] - bestLines[1][1])
-    while (angle < smallestAngle) or (abs(np.pi - angle) < (smallestAngle * np.pi / 180)):
+    while len(maxima) > 2 and ((angle < smallestAngle) or (abs(np.pi - angle) < (smallestAngle))):
         del maxima[0]
         bestLines = maxima[:2]
         angle = abs(bestLines[0][1] - bestLines[1][1])
@@ -294,5 +298,5 @@ def createTestData(n, folder):
     textFile.close()
 
 if __name__=="__main__":
-    createTestData(2000, "angleData")
+    createTestData(20, "angleData")
     #main()

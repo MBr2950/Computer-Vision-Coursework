@@ -2,6 +2,8 @@ import argparse
 import task3
 import pandas as pd
 import cv2
+import numpy as np
+import time
 
 import task1, task2, task3
 
@@ -16,23 +18,29 @@ def testTask1(folderName):
     predAngles = []
     totalError = 0
     
+    startTime = time.perf_counter()
+    
     for i in range(0, len(images)):
         image = cv2.imread(folderName + "/" + images[i])
         image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         
         edges = task1.findEdges(image)
         houghSpace, magnitudes, angles, voters = task1.houghTransform(edges, 720, 0.0)
-        lines = task1.findMaxima(houghSpace, magnitudes, angles, voters)  
-
+        lines = task1.findMaxima(houghSpace, magnitudes, angles, voters, smallestAngle=10*(np.pi/180))  
         angle, _, _, _ = task1.calculateAngle(lines)
+        
         predAngles.append(angle)
         error = abs(angle - testAngles[i])
         totalError += error
         
-        #print(images[i] + ", Predicted angle:" + str(round(angle)), "Actual angle:" + str(testAngles[i]), "Error:" + str(round(error)))
-        print(f"Image {i} Error: { str(round(error))}")
+        print(images[i] + ", Predicted angle:" + str(round(angle)), "Actual angle:" + str(testAngles[i]), "Error:" + str(round(error)))
+        #print(f"Image {i} Error: { str(round(error))}")
     
-    print("Total Error:", totalError, "\n")
+    endTime = time.perf_counter()
+    print("\nTotal time:" + str(endTime - startTime))
+    print("Average Time:" + str((endTime - startTime) / len(images)))
+    
+    print("Total Error:" + str(totalError))
     return (totalError)
 
 def testTask2(iconDir, testDir):
