@@ -1,4 +1,5 @@
 import argparse
+import task3
 import pandas as pd
 import cv2
 
@@ -18,15 +19,16 @@ def testTask1(folderName):
         image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         
         edges = task1.findEdges(image)
-        houghSpace, magnitudes, angles, voters = task1.houghTransform(edges, 180, 0.0)
+        houghSpace, magnitudes, angles, voters = task1.houghTransform(edges, 720, 0.0)
         lines = task1.findMaxima(houghSpace, magnitudes, angles, voters)  
 
-        angle, _, _ = task1.calculateAngle(lines)
+        angle, _, _, _ = task1.calculateAngle(lines)
         predAngles.append(angle)
         error = abs(angle - testAngles[i])
         totalError += error
         
-        print(images[i] + ", Predicted angle:" + str(round(angle)), "Actual angle:" + str(testAngles[i]), "Error:" + str(round(error)))
+        #print(images[i] + ", Predicted angle:" + str(round(angle)), "Actual angle:" + str(testAngles[i]), "Error:" + str(round(error)))
+        print(str(round(error)) + ",", end = "")
     
     print(totalError)
     return (totalError)
@@ -46,7 +48,18 @@ def testTask3(iconFolderName, testFolderName):
     # For each predicted class, check accuracy with the annotations
     # Check and calculate the Intersection Over Union (IoU) score
     # based on the IoU determine accuracy, TruePositives, FalsePositives, FalseNegatives
-    return (Acc,TPR,FPR,FNR)
+
+    # Assuming that the icons and images folders are layed out in the same way as the example data
+    # and argument is of format './IconDataset'
+    iconsLocation = iconFolderName + "/png/"
+    imagesLocation = testFolderName + "/images/"
+    annotationsLocation = testFolderName + "/annotations/"
+    truePositives, falsePositives, falseNegatives, _, _ = task3.main(iconsLocation=iconsLocation, imagesLocation=imagesLocation, annotationsLocation=annotationsLocation)
+    
+    accuracy = truePositives / (truePositives + falsePositives + falseNegatives)
+    accuracy *= 100 
+
+    return (accuracy, truePositives, falsePositives, falseNegatives)
 
 
 if __name__ == "__main__":
