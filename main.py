@@ -3,9 +3,11 @@ import task3
 import pandas as pd
 import cv2
 
-import task1
+import task1, task2, task3
 
 def testTask1(folderName):
+    print("Task 1 Start")
+
     # assume that this folder name has a file list.txt that contains the annotation
     task1Data = pd.read_csv(folderName + "/list.txt")
     images = task1Data["FileName"].tolist()
@@ -28,21 +30,37 @@ def testTask1(folderName):
         totalError += error
         
         #print(images[i] + ", Predicted angle:" + str(round(angle)), "Actual angle:" + str(testAngles[i]), "Error:" + str(round(error)))
-        print(str(round(error)) + ",", end = "")
+        print(f"Image {i} Error: { str(round(error))}")
     
-    print(totalError)
+    print("Total Error:", totalError, "\n")
     return (totalError)
 
 def testTask2(iconDir, testDir):
+    print("Task 2 Start")
+
     # assume that test folder name has a directory annotations with a list of csv files
     # load train images from iconDir and for each image from testDir, match it with each class from the iconDir to find the best match
     # For each predicted class, check accuracy with the annotations
     # Check and calculate the Intersection Over Union (IoU) score
     # based on the IoU determine accuracy, TruePositives, FalsePositives, FalseNegatives
-    return (Acc,TPR,FPR,FNR)
+    
+    # Assuming that the icons and images folders are layed out in the same way as the example data
+    # and argument is of format ./IconDataset
+    iconsLocation = iconDir + "/png/"
+    imagesLocation = testDir + "/images/"
+    annotationsLocation = testDir + "/annotations/"
+
+    truePositives, falsePositives, falseNegatives, _, _ = task2.main(imagesLocation, iconsLocation, annotationsLocation)
+
+    accuracy = truePositives / (truePositives + falsePositives + falseNegatives)
+    accuracy *= 100 
+    
+    return (accuracy, truePositives, falsePositives, falseNegatives)
 
 
 def testTask3(iconFolderName, testFolderName):
+    print("Task 3 Start")
+
     # assume that test folder name has a directory annotations with a list of csv files
     # load train images from iconDir and for each image from testDir, match it with each class from the iconDir to find the best match
     # For each predicted class, check accuracy with the annotations

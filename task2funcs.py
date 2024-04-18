@@ -227,7 +227,7 @@ def plot_results(images, annotations, numIcons, results, outputDir):
         image_results = results[name]
         for j in range(len(image_results)):
             match = image_results[j]
-            print("Name:", match)
+            print(f"{name}: {match}")
             icon_name, score, top_left, dim = match
             bottom_right = (top_left[0] + dim[0], top_left[1] + dim[1])
 

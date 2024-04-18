@@ -1,5 +1,6 @@
 from task2funcs import *
 import math
+import time
 
 SCALE = 1 / math.sqrt(2)
 SPEED_SCALES = 5
@@ -9,7 +10,9 @@ ICON_SCALES = 5
 THRESHOLD = 30
 
     
-def main(testDir, iconDir, annotationsDir, outputDir):
+def main(testDir, iconDir, annotationsDir, outputDir = "Task2OutputImages/"):
+    startTime = time.time()
+
     # Create copy of images, for final display
     images = load_images(testDir)
     images = [(name, image) for name, image in images]
@@ -30,12 +33,24 @@ def main(testDir, iconDir, annotationsDir, outputDir):
     print("Prediction complete.")
 
     truePositives, falsePositives, falseNegatives, averageIntersectionOverUnion = plot_results(images, annotations, numIcons, results, outputDir)
-    print(f"True Positives: {truePositives}, False Positives: {falsePositives}, False Negatives: {falseNegatives}, Average IoU: {averageIntersectionOverUnion}")
+    runtime = time.time() - startTime
+    print(f"True Positives: {truePositives}, False Positives: {falsePositives}, False Negatives: {falseNegatives}, Average IoU: {averageIntersectionOverUnion}, Runtime: {runtime} \n")
+
+    return truePositives, falsePositives, falseNegatives, averageIntersectionOverUnion, runtime
+
+
 
 
 if __name__ == '__main__':
     iconDir = "IconDataset/png/"
     testDir = "Task2Dataset/images/"
     annotationsDir = "Task2Dataset/annotations/"
-    outputDir = "Task2OutputImages/"
-    main(testDir, iconDir, annotationsDir, outputDir)
+    truePositives, falsePositives, falseNegatives, averageIntersectionOverUnion, runtime = main(testDir, iconDir, annotationsDir)
+
+    accuracy = truePositives / (truePositives + falsePositives + falseNegatives)
+    accuracy *= 100
+
+    truePositiveRate = truePositives / (truePositives + falseNegatives)
+    truePositiveRate *= 100
+
+    print(f"Accuracy: {accuracy}, True Positive Rate: {truePositiveRate}")
