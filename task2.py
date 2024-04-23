@@ -3,7 +3,7 @@ import math
 import time
 
 SCALE = 1 / math.sqrt(2)
-SPEED_SCALES = 5
+SPEED_SCALES = 6
 ICON_ROTATIONS = 1
 ICON_START_SCALE = 2
 ICON_SCALES = 5
