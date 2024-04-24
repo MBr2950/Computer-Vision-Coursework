@@ -16,9 +16,9 @@ def load_images(dir):
     return images
 
 
-# loads list of annotations given relative dir filepath
+# loads map of annotations given relative dir filepath
 def load_annotations(dir):
-        annotations = []
+        annotations = {}
         annotationPaths = os.listdir(dir)
         # Total number of icons, used for calculating accuracy
         numIcons = 0
@@ -34,7 +34,7 @@ def load_annotations(dir):
             numIcons += len(annotation)
             file.close()
 
-            annotations.append(annotation)
+            annotations[annotationPaths[i].split('.')[0]] = annotation
         return annotations, numIcons
 
 
@@ -236,7 +236,7 @@ def plot_results(images, annotations, numIcons, results, outputDir):
     images = [images for images in images if images[0] in results]
     for i in range(len(images)):
         name, image = images[i]
-        annotation = annotations[i]
+        annotation = annotations[name.split('.')[0]]
 
         # print("\nDisplaying", name)
 
