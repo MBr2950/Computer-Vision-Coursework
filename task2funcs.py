@@ -274,7 +274,7 @@ def plot_results(images, annotations, numIcons, results, outputDir):
         # Finds number of icons not detected, and average intersectionOverUnion (including false negatives,
         # on average how much do predicted bounding boxes line up with actual bounding boxes)
         falseNegatives = numIcons - truePositives
-        averageIntersectionOverUnion = (totalIntersectionOverUnion / (truePositives + falsePositives + falseNegatives)) * 100
+        averageIntersectionOverUnion = (totalIntersectionOverUnion / (truePositives + falsePositives)) * 100
 
         # cv2.imshow(name, image)
         # cv2.waitKey(0)
