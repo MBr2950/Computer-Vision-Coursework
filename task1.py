@@ -2,53 +2,6 @@ import cv2
 import numpy as np
 import random
 
-def main():
-    for i in range(28, 29):
-        image = cv2.imread("./angleData/image" + str(i) + ".png")
-        image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-
-        cv2.imshow("image", image)
-        cv2.waitKey(0)
-        
-        edges = findEdges(image)
-
-        houghSpace, magnitudes, angles, voters = houghTransform(edges, 360, 0.0)
-        lines = findMaxima(houghSpace, magnitudes, angles, voters)  
-
-        angle, intersectionX, intersectionY, furthestVoters = calculateAngle(lines)
-        
-        # Convert edges to color image
-        edges_color = cv2.cvtColor(edges, cv2.COLOR_GRAY2BGR)
-        
-        # Draw lines on the edges image
-        for i in range(2):
-            r, theta, _, _= lines[i]
-            voter = furthestVoters[i]
-
-            a = np.cos(theta)
-            b = np.sin(theta)
-            
-            x0 = a*r
-            y0 = b*r
-            
-            x1 = int(x0 + 1000*(-b))
-            y1 = int(y0 + 1000*(a))
-
-            x2 = int(x0 - 1000*(-b))
-            y2 = int(y0 - 1000*(a))
- 
-            cv2.line(edges_color, (x1, y1), (x2, y2), (0, 0, 255), 2)
-            cv2.line(edges_color, (int(intersectionX), int(intersectionY)), voter, (255, 0, 0), 2)
-        
-        # Draw intersection
-        cv2.circle(edges_color, (int(intersectionX), int(intersectionY)), radius=3, color=(0, 255, 0), thickness=-1)
-        
-        print(angle)
-
-        cv2.imshow("image", edges_color)
-        cv2.waitKey(0)
-        cv2.destroyAllWindows()
-
 # Calculate angle between lines in image
 # Input: lines to calculate angle between
 # Output: value of angle in degrees, intersection point of lines
