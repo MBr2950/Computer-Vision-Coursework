@@ -271,7 +271,10 @@ def main(distanceThreshold = 60, pointsThreshold = 1, losstype = cv2.NORM_L2, ic
                  "tractor", "sign", "ferris-wheel", "museum", "fire-station", "restaurant", "hospital", "school", "cemetery"]
     imagePaths = os.listdir(imagesLocation)
     annotationPaths = os.listdir(annotationsLocation)
-    
+    # Sort to make sure images and annotations match
+    imagePaths.sort()
+    annotationPaths.sort()
+
     # Reads all icons and images to cv2 images
     icons = []
     images = []
@@ -377,21 +380,24 @@ def main(distanceThreshold = 60, pointsThreshold = 1, losstype = cv2.NORM_L2, ic
 
 # Test the code for a number of different parameters
 if __name__ == '__main__':
-    accuracies = []
-    for pointsThreshold in range(1, 4):
-        for distanceThreshold in range(0, 101, 5):
-            print("\n")
-            print(f"Distance Threshold: {distanceThreshold}, Points Threshold: {pointsThreshold}")
-            TPs, FPs, FNs, averageIntersectionOverUnion, finalTime = main(distanceThreshold, pointsThreshold)
 
-            accuracy = TPs / (TPs + FPs + FNs)
-            accuracy *= 100
+    TPs, FPs, FNs, averageIntersectionOverUnion, finalTime = main()
 
-            TPR = TPs / (TPs + FNs)
-            TPR *= 100
+    # accuracies = []
+    # for pointsThreshold in range(1, 4):
+    #     for distanceThreshold in range(0, 101, 5):
+    #         print("\n")
+    #         print(f"Distance Threshold: {distanceThreshold}, Points Threshold: {pointsThreshold}")
+    #         TPs, FPs, FNs, averageIntersectionOverUnion, finalTime = main(distanceThreshold, pointsThreshold)
 
-            accuracies.append((distanceThreshold, pointsThreshold, TPs, FPs, FNs, accuracy, TPR, averageIntersectionOverUnion, finalTime))
+    #         accuracy = TPs / (TPs + FPs + FNs)
+    #         accuracy *= 100
 
-            print("\n")
-            for line in accuracies:
-                print(f"Distance Threshold: {line[0]}, Points Threshold: {line[1]}, TPs: {line[2]}, FPs: {line[3]}, FNs: {line[4]}, Accuracy: {line[5]}%, TPR: {line[6]}%, Average IOU: {line[7]}%")
+    #         TPR = TPs / (TPs + FNs)
+    #         TPR *= 100
+
+    #         accuracies.append((distanceThreshold, pointsThreshold, TPs, FPs, FNs, accuracy, TPR, averageIntersectionOverUnion, finalTime))
+
+    #         print("\n")
+    #         for line in accuracies:
+    #             print(f"Distance Threshold: {line[0]}, Points Threshold: {line[1]}, TPs: {line[2]}, FPs: {line[3]}, FNs: {line[4]}, Accuracy: {line[5]}%, TPR: {line[6]}%, Average IOU: {line[7]}%")

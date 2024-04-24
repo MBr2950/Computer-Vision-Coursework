@@ -16,9 +16,9 @@ def load_images(dir):
     return images
 
 
-# loads list of annotations given relative dir filepath
+# loads map of annotations given relative dir filepath
 def load_annotations(dir):
-        annotations = []
+        annotations = {}
         annotationPaths = os.listdir(dir)
         # Total number of icons, used for calculating accuracy
         numIcons = 0
@@ -34,7 +34,7 @@ def load_annotations(dir):
             numIcons += len(annotation)
             file.close()
 
-            annotations.append(annotation)
+            annotations[annotationPaths[i].split('.')[0]] = annotation
         return annotations, numIcons
 
 
@@ -62,13 +62,12 @@ def load_and_preprocess_images(dir, rotations = 1):
 def build_gaussian_pyramid(image, num_scales, scale_factor, start_scale = 0):
     for _ in range(start_scale):
         image = cv2.GaussianBlur(image, (3, 3), 0)
-        image = ndimage.zoom(image, scale_factor)
+        image = cv2.resize(image, (int(image.shape[1] * scale_factor), int(image.shape[0] * scale_factor)))
     
     pyramid = [image]
     for _ in range(num_scales - 1):
         image = cv2.GaussianBlur(image, (3, 3), 0)
-        #image = cv2.resize(image, (0, 0), fx=scale_factor, fy=scale_factor)
-        image = ndimage.zoom(image, scale_factor)
+        image = cv2.resize(image, (int(image.shape[1] * scale_factor), int(image.shape[0] * scale_factor)))
         pyramid.insert(0, image)
     return pyramid
 
@@ -80,7 +79,7 @@ def hone(image_pyramid, template_pyramid, scale_factor, best_loc):
 
     assert(len(image_pyramid) == len(template_pyramid))
 
-    min_rss = np.inf
+    min_ssd = np.inf
     best_size = (0, 0)
 
     for image_level, template_level in zip(image_pyramid, template_pyramid):
@@ -97,7 +96,7 @@ def hone(image_pyramid, template_pyramid, scale_factor, best_loc):
         endY = min(math.ceil((best_loc[1] + 1) / scale_factor), height - 1)
 
 
-        min_rss = np.inf
+        min_ssd = np.inf
         best_size = (0, 0)
         best_loc = None
 
@@ -105,24 +104,24 @@ def hone(image_pyramid, template_pyramid, scale_factor, best_loc):
         for y in range(startY, endY + 1):
             for x in range(startX, endX + 1):
                 section = image_level[y : y + t_size[0], x : x + t_size[1]]
-                rss = np.sum((section - template_level) ** 2) * t_norm
-                if rss < min_rss:
-                    min_rss = rss
+                ssd = np.sum((section - template_level) ** 2) * t_norm
+                if ssd < min_ssd:
+                    min_ssd = ssd
                     best_size = t_size
                     best_loc = (x, y)
 
-    return min_rss, best_loc, best_size
+    return min_ssd, best_loc, best_size
 
 
 
-# returns the location of the best match and the map of the RSS values
-def match_template_rss(image_pyramid, template_pyramid, scale_factor):
+# returns the location of the best match and the map of the ssd values
+def match_template_ssd(image_pyramid, template_pyramid, scale_factor):
         
     start_level = image_pyramid[0]
     image_pyramid = image_pyramid[1:]
 
 
-    min_rss = np.inf
+    min_ssd = np.inf
     best_size = (0, 0)
     best_loc = None
     best_template_i = 0
@@ -139,19 +138,39 @@ def match_template_rss(image_pyramid, template_pyramid, scale_factor):
         for y in range(height):
             for x in range(width):
                 section = start_level[y : y + t_size[0], x : x + t_size[1]]
-                rss = np.sum((section - template_level) ** 2) * t_norm
-                if rss < min_rss:
-                    min_rss = rss
+                ssd = np.sum((section - template_level) ** 2) * t_norm
+                if ssd < min_ssd:
+                    min_ssd = ssd
                     best_size = t_size
                     best_loc = (x, y)
                     best_template_i = i
 
     if len(image_pyramid) > 0:
         i = best_template_i
-        min_rss, best_loc, best_size = hone(image_pyramid, template_pyramid[i + 1:i + 1 + len(image_pyramid)], scale_factor, best_loc)
+        min_ssd, best_loc, best_size = hone(image_pyramid, template_pyramid[i + 1:i + 1 + len(image_pyramid)], scale_factor, best_loc)
 
     
-    return min_rss, best_loc, best_size
+    return min_ssd, best_loc, best_size
+
+
+
+def displayPyramid(pyrm):
+     # Display all levels of one of the icon pyramids in a single image
+    icon_name, icon_pyramid = pyrm
+    print("Displaying icon pyramid", icon_name)
+    final_res = icon_pyramid[-1].shape
+    new = []
+    
+    for i in range(len(icon_pyramid)):
+        this = icon_pyramid[i]
+        this = cv2.resize(this, final_res)
+        new.append(this)
+    
+    icon_pyramid = new
+    combined_levels = np.hstack(icon_pyramid)
+    cv2.imshow(f"Icon Pyramid", combined_levels)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
 
 
 
@@ -171,7 +190,7 @@ def predict(images, icons, annotations, numIcons, SCALE, SPEED_SCALES, ICON_STAR
         matches = []
         for icon_name, icon_pyramid in icon_pyramids:
             #print(icon_name)
-            score, top_left, dim = match_template_rss(test_pyramid, icon_pyramid, SCALE)
+            score, top_left, dim = match_template_ssd(test_pyramid, icon_pyramid, SCALE)
             if score <= THRESHOLD:
                 matches.append([icon_name, score, top_left, dim])
 
@@ -220,14 +239,14 @@ def plot_results(images, annotations, numIcons, results, outputDir):
     images = [images for images in images if images[0] in results]
     for i in range(len(images)):
         name, image = images[i]
-        annotation = annotations[i]
+        annotation = annotations[name.split('.')[0]]
 
         # print("\nDisplaying", name)
 
         image_results = results[name]
         for j in range(len(image_results)):
             match = image_results[j]
-            print(f"{name}: {match}")
+            #print(f"{name}: {match}")
             icon_name, score, top_left, dim = match
             bottom_right = (top_left[0] + dim[0], top_left[1] + dim[1])
 
@@ -258,7 +277,8 @@ def plot_results(images, annotations, numIcons, results, outputDir):
         # Finds number of icons not detected, and average intersectionOverUnion (including false negatives,
         # on average how much do predicted bounding boxes line up with actual bounding boxes)
         falseNegatives = numIcons - truePositives
-        averageIntersectionOverUnion = (totalIntersectionOverUnion / (truePositives + falsePositives + falseNegatives)) * 100
+        #averageIntersectionOverUnion = 0
+        averageIntersectionOverUnion = (totalIntersectionOverUnion / (truePositives + falsePositives)) * 100
 
         # cv2.imshow(name, image)
         # cv2.waitKey(0)
