@@ -154,14 +154,9 @@ def match_template_ssd(image_pyramid, template_pyramid, scale_factor):
 
 
 
-def predict(images, icons, annotations, numIcons, SCALE, SPEED_SCALES, ICON_START_SCALE, ICON_SCALES, THRESHOLD):
-    print("Building pyramids...")
-    icon_pyramids = [(name, build_gaussian_pyramid(icon, ICON_SCALES + SPEED_SCALES - 1, SCALE, ICON_START_SCALE)) for name, icon in icons]
-    test_pyramids = [(name, build_gaussian_pyramid(img, SPEED_SCALES, SCALE)) for name, img in images]
-    print("Pyramids built.")
-
-    # Display all levels of one of the icon pyramids in a single image
-    icon_name, icon_pyramid = icon_pyramids[0]
+def displayPyramid(pyrm):
+     # Display all levels of one of the icon pyramids in a single image
+    icon_name, icon_pyramid = pyrm
     print("Displaying icon pyramid", icon_name)
     final_res = icon_pyramid[-1].shape
     new = []
@@ -176,6 +171,14 @@ def predict(images, icons, annotations, numIcons, SCALE, SPEED_SCALES, ICON_STAR
     cv2.imshow(f"Icon Pyramid", combined_levels)
     cv2.waitKey(0)
     cv2.destroyAllWindows()
+
+
+
+def predict(images, icons, annotations, numIcons, SCALE, SPEED_SCALES, ICON_START_SCALE, ICON_SCALES, THRESHOLD):
+    print("Building pyramids...")
+    icon_pyramids = [(name, build_gaussian_pyramid(icon, ICON_SCALES + SPEED_SCALES - 1, SCALE, ICON_START_SCALE)) for name, icon in icons]
+    test_pyramids = [(name, build_gaussian_pyramid(img, SPEED_SCALES, SCALE)) for name, img in images]
+    print("Pyramids built.")
 
     results = {}
 
@@ -243,7 +246,7 @@ def plot_results(images, annotations, numIcons, results, outputDir):
         image_results = results[name]
         for j in range(len(image_results)):
             match = image_results[j]
-            print(f"{name}: {match}")
+            #print(f"{name}: {match}")
             icon_name, score, top_left, dim = match
             bottom_right = (top_left[0] + dim[0], top_left[1] + dim[1])
 
@@ -274,6 +277,7 @@ def plot_results(images, annotations, numIcons, results, outputDir):
         # Finds number of icons not detected, and average intersectionOverUnion (including false negatives,
         # on average how much do predicted bounding boxes line up with actual bounding boxes)
         falseNegatives = numIcons - truePositives
+        #averageIntersectionOverUnion = 0
         averageIntersectionOverUnion = (totalIntersectionOverUnion / (truePositives + falsePositives)) * 100
 
         # cv2.imshow(name, image)

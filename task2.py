@@ -3,7 +3,7 @@ import math
 import time
 
 SCALE = 1 / math.sqrt(2)
-SPEED_SCALES = 8
+SPEED_SCALES = 6
 ICON_ROTATIONS = 1
 ICON_START_SCALE = 2
 ICON_SCALES = 5
@@ -34,7 +34,7 @@ def main(testDir, iconDir, annotationsDir, outputDir = "Task2OutputImages/"):
 
     truePositives, falsePositives, falseNegatives, averageIntersectionOverUnion = plot_results(images, annotations, numIcons, results, outputDir)
     runtime = time.time() - startTime
-    print(f"True Positives: {truePositives}, False Positives: {falsePositives}, False Negatives: {falseNegatives}, Average IoU: {averageIntersectionOverUnion}, Runtime: {runtime} \n")
+    #print(f"True Positives: {truePositives}, False Positives: {falsePositives}, False Negatives: {falseNegatives}, Average IoU: {averageIntersectionOverUnion}, Runtime: {runtime} \n")
 
     return truePositives, falsePositives, falseNegatives, averageIntersectionOverUnion, runtime
 
@@ -45,6 +45,8 @@ if __name__ == '__main__':
     iconDir = "IconDataset/png/"
     testDir = "Task2Dataset/images/"
     annotationsDir = "Task2Dataset/annotations/"
+  
+    
     truePositives, falsePositives, falseNegatives, averageIntersectionOverUnion, runtime = main(testDir, iconDir, annotationsDir)
 
     accuracy = truePositives / (truePositives + falsePositives + falseNegatives)
@@ -53,4 +55,5 @@ if __name__ == '__main__':
     truePositiveRate = truePositives / (truePositives + falseNegatives)
     truePositiveRate *= 100
 
-    print(f"Accuracy: {accuracy}, True Positive Rate: {truePositiveRate}")
+    
+    print(f"Accuracy: {accuracy}, True Positive Rate: {truePositiveRate}, Average IoU: {averageIntersectionOverUnion}, Runtime: {runtime}, False Positives: {falsePositives} \n")
